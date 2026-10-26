@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tree Survey Mapper</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<style>
+:root{--bar:#12261d;--ink:#17261f;--pane:#f1f4f1;--line:#cfd8d2;--moss:#2f6b4f;--lime:#b6ff3b;--cyan:#28c8ff;--warn:#ff8a1f}
+*{box-sizing:border-box}html,body{height:100%;margin:0;font:14px/1.4 system-ui,sans-serif;color:var(--ink)}
+body{display:grid;grid-template-rows:48px 1fr auto}
+header{background:var(--bar);color:#fff;display:flex;align-items:center;gap:8px;padding:0 12px}
+header h1{font-size:16px;margin:0 12px 0 0;font-weight:600}
+#stat{font-size:12px;opacity:.85;margin:0 8px 0 auto}
+button{font:inherit;border:1px solid var(--line);background:#fff;color:var(--ink);padding:5px 10px;border-radius:4px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--moss)}button:disabled{opacity:.45;cursor:default}
+button.p{background:var(--moss);border-color:var(--moss);color:#fff}textarea{width:100%;font:inherit;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);resize:vertical}button.danger{border-color:#b42318;color:#a11d16;background:#fff7f6}
+header button{background:transparent;color:#fff;border-color:#4d6a5b}
+header button[aria-pressed=true]{background:var(--lime);color:#12261d;border-color:var(--lime)}
+:focus-visible{outline:3px solid #ff3d81;outline-offset:1px}
+main{display:grid;grid-template-columns:auto 1fr auto;min-height:0}
+aside{background:var(--pane);overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;min-height:0}
+#mapwrap{position:relative;min-height:0}#map{position:absolute;inset:0;background:#222}
+#drop{border:2px dashed var(--moss);border-radius:6px;padding:14px;text-align:center;cursor:pointer;background:#fff}
+#drop.over{background:#e3f4d0}#drop input{display:none}
+input[type=search],input[type=text],input[type=date],input[type=password],select{width:100%;font:inherit;padding:5px;border:1px solid var(--line);border-radius:4px;background:#fff}
+#list{flex:1;overflow:auto;border:1px solid var(--line);background:#fff;min-height:120px}
+.item{padding:6px 8px;border-bottom:1px solid #e4eae6;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
+.item[aria-selected=true]{background:#ffe0ec}.item.hidden-item{background:#f5f1e8;color:#665b43}.item.hidden-item .tag{background:#e7dcc2;color:#473918}.item small{color:#5b6b62;display:block}
+.tag{font-size:11px;padding:1px 6px;border-radius:9px;align-self:center;white-space:nowrap}
+.tag.original{background:#d6f3ff}.tag.corrected{background:var(--lime)}.tag.review{background:#ffd9b3}.tag.invalid{background:#f6c5c5}
+.files div{font-size:12px;padding:3px 0;border-bottom:1px solid #e4eae6}
+table{border-collapse:collapse;width:100%;font-size:12px}td,th{border-bottom:1px solid #e0e6e2;padding:3px 4px;text-align:left;vertical-align:top;word-break:break-word}
+th{width:42%;font-weight:600}
+.hint{color:#5b6b62}.row{display:flex;gap:6px;flex-wrap:wrap}
+#cur{position:absolute;left:8px;bottom:26px;z-index:900;background:#fffd;padding:2px 6px;border-radius:3px;font:12px monospace}
+#warn{position:absolute;top:60px;left:50%;transform:translateX(-50%);z-index:900;background:#b3261e;color:#fff;padding:6px 12px;border-radius:4px;display:none}
+#toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--bar);color:#fff;padding:8px 14px;border-radius:4px;z-index:3000;display:none}
+dialog{border:1px solid var(--line);border-radius:6px;max-width:560px;width:92vw}
+dialog label{display:block;margin:6px 0 2px;font-weight:600}
+.cross{width:26px;height:26px;border:3px solid #ff3d81;border-radius:50%;background:#ff3d8133;box-shadow:0 0 0 2px #fff}
+.sw{display:flex;align-items:center;gap:6px;cursor:pointer;font-weight:600}.sw input{position:absolute;opacity:0}.sw i{width:38px;height:20px;border-radius:10px;background:#28c8ff;position:relative;transition:background .15s;flex:none}
+.sw i:after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}.sw input:checked+i{background:#7bc82b}.sw input:checked+i:after{transform:translateX(18px)}
+.sw input:focus-visible+i{outline:3px solid #ff3d81}.sw input:disabled+i{opacity:.4}
+.ph{width:100%;height:260px;object-fit:contain;background:#101a14;border-radius:4px;display:block;margin-bottom:4px}.ph.top{object-fit:cover;object-position:top}.th{width:48px;height:48px;object-fit:cover;object-position:top;border-radius:3px;cursor:pointer;border:1px solid var(--line)}
+.noph{height:90px;border:1px dashed var(--line);display:grid;place-items:center;color:#5b6b62;border-radius:4px;background:#fff}
+.sec{border-top:1px solid var(--line);padding-top:6px}.sec h3{margin:0 0 4px;font-size:14px}details summary{cursor:pointer;margin:4px 0;font-weight:600}details input,details select{margin:2px 0}
+#left{width:270px;grid-column:1}#mapwrap{grid-column:2}#detail{width:340px;grid-column:3}main>*{grid-row:1}main.noL #left,main.noR #detail{display:none}
+header .tg[aria-pressed=true]{background:#2c4a3b;color:#fff;border-color:#7fa08d}
+#modebar{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;background:#fff;color:#17261f;border:1px solid #cfd8d2;padding:7px 16px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.55)}
+.tl{background:#0b1d14d9;color:#fff;border:0;box-shadow:none;font:600 11px system-ui;padding:1px 5px}.tl:before{display:none}#map.nolbl .tl{display:none}
+.ts{display:inline-block;background:#fff;color:#1b4fd8;font:700 11px system-ui;padding:1px 6px;border-radius:8px;white-space:nowrap;position:relative;top:-26px;left:6px;box-shadow:0 0 3px #0006}
+footer{background:var(--bar);color:#fff;display:flex;align-items:center;gap:12px;padding:6px 12px;flex-wrap:wrap}footer .sp{flex:1}footer button{background:transparent;color:#fff;border-color:#4d6a5b}footer button:disabled{opacity:.35}
+#phnav{display:flex;align-items:center;gap:10px}#phinfo{min-width:200px;text-align:center;font-size:13px}#modeNote{font-size:12px;opacity:.85}#cnt{font-size:12px}
+.lt{width:40px;height:40px;object-fit:cover;object-position:top;border-radius:3px;flex:none;margin-right:8px}
+header .brand{display:contents}header .toolbar{display:contents}header .primary-actions{display:contents}header .view-switch{display:contents}header .more-actions{display:contents}header .more-actions>summary{display:none}header .more-panel{display:contents}
+@media(max-width:900px){#left,#detail{width:auto}#left,#mapwrap,#detail{grid-column:1}main>*{grid-row:auto}}
+@media(max-width:900px){body{grid-template-rows:48px 1fr auto}main{grid-template-columns:1fr;grid-template-rows:55vh 220px auto;overflow:auto}#mapwrap{order:-1}}
+@media(max-width:640px){
+ html,body{height:100%;height:100dvh;overflow:hidden}
+ body{grid-template-rows:auto minmax(0,1fr) auto}
+ header{height:auto;min-height:0;flex-wrap:wrap;align-content:center;gap:5px;padding:7px 8px}
+ header h1{flex:1 1 100%;font-size:16px;margin:0 0 2px}
+ header button{flex:1 1 auto;min-height:40px;padding:6px 7px;font-size:12px;white-space:nowrap}
+ #stat{order:20;flex:1 1 100%;font-size:11px;margin:0 2px 1px}
+ main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(36svh,44svh) minmax(240px,auto) minmax(260px,auto);overflow-y:auto;overscroll-behavior:contain}
+ #mapwrap{order:-1;min-height:280px}
+ #left,#detail{width:auto;min-height:240px;padding:10px}
+ #list{min-height:180px}
+ .item{min-height:44px;padding:9px 8px}
+ footer{align-items:center;gap:5px;padding:6px 8px}
+ footer button{min-height:40px;padding:6px 8px;font-size:12px}
+ footer .sw{min-height:40px}
+ #modeNote{flex:1 1 100%;font-size:11px}
+ #phnav{flex:1 1 100%;justify-content:space-between;gap:4px}
+ #phinfo{flex:1;min-width:0;font-size:11px}
+ dialog{width:94vw;max-width:none;max-height:88dvh;overflow:auto;padding:14px}
+ dialog button{min-height:40px}
+ #modebar{max-width:calc(100vw - 16px);padding:6px 12px;font-size:12px;text-align:center}
+}
+@media(max-height:620px) and (max-width:640px){main{grid-template-rows:minmax(220px,40svh) minmax(220px,auto) minmax(240px,auto)}#mapwrap{min-height:220px}}
+/* Phone-first layout: keep the map in view and switch the space below it between list and details. */
+@media(max-width:760px){
+ html,body{height:100%;height:100dvh;min-height:0;overflow:hidden}
+ body{grid-template-rows:auto minmax(0,1fr) auto;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+ header{height:auto;min-height:0;display:grid;grid-template-columns:minmax(0,1fr);gap:7px;padding:8px 10px;background:#12261d;z-index:1000}
+ header .brand{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+ header h1{font-size:16px;line-height:1.2;margin:0;white-space:nowrap}
+ #stat{font-size:11px;line-height:1.25;text-align:right;margin:0;max-width:55%;overflow:hidden;text-overflow:ellipsis}
+ header .toolbar{display:flex;align-items:stretch;gap:6px;min-width:0}
+ header .view-switch{display:flex;flex:1;min-width:0;border:1px solid #4d6a5b;border-radius:8px;overflow:hidden}
+ header .view-switch button{flex:1;min-width:0;border:0;border-radius:0;padding:7px 5px;font-size:12px}
+ header .view-switch button+button{border-left:1px solid #4d6a5b}
+ header .primary-actions{display:flex;gap:5px}
+ header .primary-actions button,header .more-actions>summary{min-height:42px;padding:7px 9px;font-size:12px;white-space:nowrap;display:flex;align-items:center;justify-content:center}
+ header .more-actions{display:block;position:relative}
+ header .more-actions>summary{list-style:none;border:1px solid #4d6a5b;border-radius:7px;cursor:pointer}
+ header .more-actions>summary::-webkit-details-marker{display:none}
+ header .more-actions[open]>summary{background:#2c4a3b}
+ header .more-panel{display:grid;position:absolute;right:0;top:calc(100% + 5px);width:min(230px,75vw);padding:6px;background:#12261d;border:1px solid #4d6a5b;border-radius:8px;box-shadow:0 8px 24px #0005;z-index:2000;gap:5px}
+ header .more-panel button{min-height:44px;text-align:left;padding:8px 10px}
+ main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(220px,42dvh) minmax(0,1fr);overflow:hidden;min-height:0;overscroll-behavior:contain}
+ #mapwrap{grid-column:1;grid-row:1;order:0;min-height:220px;touch-action:pan-x pan-y}
+ #left,#detail{grid-column:1;grid-row:2;width:auto;min-height:0;padding:10px;padding-bottom:12px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+ main>*{grid-row:auto}
+ main.noL #left,main.noR #detail{display:none}
+ #list{min-height:120px;flex:1 1 120px}
+ .item{min-height:44px;padding:8px}
+ button{min-height:42px;touch-action:manipulation}
+ footer{gap:5px;padding:6px 8px;align-items:center}
+ footer .sw{min-height:42px;font-size:12px}
+ #modeNote{flex:1 1 100%;font-size:11px;line-height:1.25}
+ #phnav{flex:1 1 100%;justify-content:space-between;gap:5px}
+ #phnav button{min-height:42px;padding:6px 9px;font-size:12px}
+ #phinfo{min-width:0;flex:1;font-size:11px}
+ #modebar{max-width:calc(100vw - 20px);padding:6px 10px;font-size:12px;text-align:center}
+ dialog{width:calc(100vw - 24px);max-width:none;max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);overflow:auto;padding:14px;border-radius:12px}
+ dialog button{min-height:44px}
+ input[type=search],input[type=text],input[type=date],input[type=password],select{min-height:42px;font-size:16px}
+}
+@media(max-width:760px) and (orientation:landscape){main{grid-template-rows:minmax(150px,55dvh) minmax(0,1fr)}header{gap:5px;padding:5px 9px}header .brand h1{font-size:14px}footer{padding:4px 8px}}
+/* Portrait phones: scroll the map and active panel as one surface. */
+@media(max-width:760px) and (orientation:portrait){
+ main{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(280px,42dvh) max-content;overflow-x:hidden;overflow-y:auto;touch-action:pan-y}
+ #mapwrap{grid-column:1;grid-row:1;min-height:280px}
+ #left,#detail{grid-column:1;grid-row:2;min-height:0;max-height:none;height:auto;overflow:visible;overscroll-behavior:auto;-webkit-overflow-scrolling:auto}
+ main>*{grid-row:auto}
+}
+/* Phone landscape, including the 812 CSS-pixel-wide iPhone XS: fixed map beside the scrolling panel. */
+@media(orientation:landscape) and (max-height:600px){
+ html,body{height:100%;height:100dvh;min-height:0;overflow:hidden}
+ body{grid-template-rows:auto minmax(0,1fr) auto;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+ header{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:4px 9px;min-height:0}
+ header .brand{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
+ header .brand h1{font-size:14px;line-height:1.1;margin:0;white-space:nowrap}
+ header #stat{font-size:10px;margin:0;max-width:55%;text-align:right;overflow:hidden;text-overflow:ellipsis}
+ header .toolbar{display:grid;grid-template-columns:minmax(130px,1fr) auto auto auto;grid-template-areas:'views actions settings more';gap:5px;align-items:center}
+ header .view-switch{grid-area:views}
+ header .primary-actions{grid-area:actions;display:flex;gap:5px}
+ header .primary-actions button,header .more-actions>summary,#settingsDock button{min-height:38px;padding:5px 8px;font-size:11px}
+ header .more-actions{grid-area:more}
+ #settingsDock{grid-area:settings}
+ main{grid-template-columns:minmax(0,1fr) minmax(0,1.12fr);grid-template-rows:minmax(0,1fr);overflow:hidden;min-height:0}
+ main>*{grid-row:1}
+ #mapwrap{grid-column:1;grid-row:1;order:0;min-height:0;height:100%}
+ #left,#detail{grid-column:2;grid-row:1;min-width:0;min-height:0;height:100%;max-height:none;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+ footer{flex-wrap:nowrap;gap:6px;padding:4px 8px}
+ footer .sw{min-height:40px;font-size:11px}
+ #modeNote{flex:1;min-width:0;font-size:10px}
+ #phnav{flex:0 1 auto;gap:4px}
+ #phnav button{min-height:40px;padding:4px 7px;font-size:10px}
+ #phinfo{min-width:0;font-size:10px}
+ #settingsDock button{min-height:38px}
+}
+/* UI/UX Pro Max adaptation: accessible, high-clarity field dashboard without extra font or icon downloads. */
+:root{--bar:#163326;--ink:#17251d;--pane:#f5f8f5;--line:#d4ded7;--moss:#28664b}
+button,.item,details summary{-webkit-tap-highlight-color:transparent}
+button{transition:background-color .18s ease,border-color .18s ease,color .18s ease}
+.item{transition:background-color .15s ease}
+.item:hover{background:#eaf2ec}
+:focus-visible{outline:3px solid #f08a24;outline-offset:2px}
+@media(max-width:760px){
+ button{min-height:44px}
+ header .toolbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:'views settings more' 'actions actions actions';gap:6px;align-items:center}
+ header .view-switch{grid-area:views}
+ header .primary-actions{grid-area:actions;gap:8px}
+ header .primary-actions button{flex:1 1 0}
+ header .more-actions{grid-area:more}
+ #settingsDock{grid-area:settings}
+ header .primary-actions button,header .more-actions>summary{padding-left:8px;padding-right:8px}
+ #settingsDock button{min-height:42px;padding:7px 10px;font-size:12px}
+ #phnav{gap:8px}
+}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+#detail .detail-heading{align-items:center;justify-content:space-between;gap:8px}
+#detail .detail-heading h2{font-size:20px;line-height:1.2;overflow-wrap:anywhere}
+#detail .detail-source{font-size:12px;margin-top:-4px}
+#detail .location-card{display:grid;gap:7px;padding:12px;border:1px solid var(--line);border-left:4px solid var(--moss);border-radius:8px;background:#fff}
+#detail .location-card .coords{font:600 15px/1.35 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+#detail .map-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;width:fit-content;padding:7px 12px;border-radius:6px;background:#eaf2ec;color:#17462f;font-weight:650;text-decoration:none}
+#detail .map-link:hover{background:#dcebe0}
+#detail .photo-viewer{display:grid;gap:8px}
+#detail .photo-viewer .ph{height:clamp(190px,32dvh,300px);margin:0}
+#detail .photo-actions{display:flex;flex-wrap:wrap;gap:8px}
+#detail .photo-actions button{flex:1 1 130px;min-height:46px}
+#detail .position-actions{gap:8px}
+#detail .position-actions button{min-height:46px}
+#detail .location-status{display:flex;align-items:center;gap:8px}
+#detail .gps-distance{padding:8px 10px;border-radius:6px;background:#edf4ff;color:#17365f;font-weight:600}
+#map .gps-button{min-width:94px;min-height:44px;padding:8px 10px;border:1px solid #a8bdd8;border-radius:7px;background:#fff;color:#174b83;font-weight:650;box-shadow:0 1px 5px #0003;cursor:pointer}
+#map .gps-button[aria-pressed="true"]{background:#1769aa;color:#fff;border-color:#1769aa}
+#map .gps-button:disabled{opacity:.65}
+#detail .extra-details{border-top:1px solid var(--line);padding-top:3px}
+#detail .extra-details>summary{min-height:44px;display:flex;align-items:center;padding:6px 2px;color:var(--ink)}
+#detail .extra-details[open]>summary{margin-bottom:6px}
+#detail .extra-details table{margin-bottom:8px}
+#settingsDock{position:relative;z-index:1600}
+#settingsDock .leaflet-control{float:none;clear:none;margin:0}
+#setBody{position:absolute;top:calc(100% + 7px);right:0;z-index:2500;width:min(300px,calc(100vw - 20px));max-height:min(64dvh,560px);overflow:auto;overscroll-behavior:contain;padding:10px;background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:9px;box-shadow:0 8px 24px #0004}
+#setBody button{background:#fff;color:var(--ink);border-color:var(--line)}
+#setBody button:hover:not(:disabled){background:#eaf2ec;border-color:var(--moss)}
+#setBody select,#setBody input{color:var(--ink)}
+#setBody .hint{color:#52635a}
+#setBody .leaflet-control-layers{color:var(--ink)}
+.map-setting-group{display:grid;gap:5px;padding:8px 0;border-top:1px solid var(--line)}
+#layerDock .leaflet-control-layers{float:none;clear:none;margin:0;border:0;box-shadow:none;border-radius:6px}
+#layerDock .leaflet-control-layers-list{margin:0}
+#layerDock .leaflet-control-layers label{min-height:38px;display:flex;align-items:center;gap:8px;margin:0}
+#layerDock .leaflet-control-layers-selector{width:18px;height:18px;flex:none}
+#walks{max-height:26dvh;overflow:auto;overscroll-behavior:contain;padding:5px 7px;border:1px solid var(--line);border-radius:6px;background:#fff}
+#walks label{min-height:40px!important;padding:3px 0}
+#walks input{width:18px;height:18px;flex:none}
+#bFit{min-height:44px}
+@media(max-width:760px){
+ #detail{gap:10px}
+ #detail .detail-heading h2{font-size:19px}
+ #detail .sec{padding-top:10px}
+ #detail .extra-details>summary{font-size:14px}
+ #detail .location-card{padding:13px}
+ #detail .location-card .coords{font-size:15px}
+ #detail .photo-viewer .ph{height:clamp(190px,30dvh,280px)}
+ #detail .photo-actions button{flex-basis:calc(50% - 8px)}
+ #detail table td,#detail table th{padding:7px 6px}
+ #detail .position-actions button{flex:1 1 125px}
+ #detail #live{padding:9px 10px;border-radius:6px;background:#fff8e8}
+}
+
+/* Survey site groups */
+.site-center-icon{background:transparent;border:0}.site-hub{display:flex;align-items:center;gap:7px;width:max-content;filter:drop-shadow(0 2px 4px #0009)}.site-center{display:grid;place-items:center;flex:none;width:38px;height:38px;border:3px solid #fff;border-radius:50%;background:#ffd426;color:#26321c;font-size:16px;font-weight:850;box-shadow:0 0 0 3px #ffd42666;animation:centerPulse 2s ease-in-out infinite}@keyframes centerPulse{50%{box-shadow:0 0 0 8px #ffd42635,0 2px 10px #0008}}.site-center-label{padding:4px 8px;border:1px solid #ffffffd9;border-radius:7px;background:#163326ed;color:#fff;font-size:12px;font-weight:700;white-space:nowrap}
+@keyframes connectFlash{0%{transform:scale(.94);box-shadow:0 0 0 0 #ffd426b0}100%{transform:scale(1);box-shadow:0 0 0 14px #ffd42600}}
+.site-card-list{display:grid;gap:9px}.site-tree-card{width:100%;display:grid;grid-template-columns:82px minmax(0,1fr);align-items:start;text-align:left;gap:10px;padding:9px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}.site-tree-card img{width:82px;height:82px;object-fit:cover;border-radius:6px;background:#e8eee9;cursor:zoom-in}.site-tree-card .site-meta{display:grid;gap:5px;min-width:0}.site-tree-card small{color:#53645a}.site-tree-card .site-facts{display:grid;grid-template-columns:1fr 1fr;gap:3px 8px;font-size:12px}.site-tree-card .site-facts b{font-weight:650}.site-no-photo{width:82px;height:82px;display:grid;place-items:center;background:#edf2ed;border-radius:6px;color:#53645a;font-size:12px;text-align:center}
+.site-route{stroke-dasharray:2 9;stroke-linecap:round;filter:drop-shadow(0 1px 1px #0008);animation:routeMarch 1.4s linear infinite}.site-route.is-active{stroke-dasharray:2 9;stroke-width:3.5;filter:drop-shadow(0 1px 1px #0008)}@keyframes routeMarch{to{stroke-dashoffset:-22}}
+.site-connect{animation:connectFlash .5s ease-out}
+.photo-zoom{width:min(96vw,1100px);height:min(94dvh,900px);max-width:none;max-height:none;padding:8px;background:#111;color:#fff;border:1px solid #526158;border-radius:10px}.photo-zoom::backdrop{background:#000d}.photo-zoom-head{height:48px;display:flex;align-items:center;gap:8px}.photo-zoom-head b{margin-right:auto}.photo-zoom button{min-height:40px}.photo-zoom-stage{height:calc(100% - 52px);overflow:auto;display:grid;place-items:center;touch-action:pan-x pan-y}.photo-zoom-stage img{max-width:100%;max-height:100%;object-fit:contain;transform-origin:center center;transition:transform .12s}
+@media(max-width:760px){.site-tree-card{grid-template-columns:88px minmax(0,1fr);padding:10px}.site-tree-card img,.site-no-photo{width:88px;height:88px}.site-center{width:36px;height:36px}}
+</style></head><body>
+<header><div class="brand"><h1>Tree Survey Mapper</h1><span id="stat" aria-live="polite">No survey loaded</span></div>
+<nav class="toolbar" aria-label="Mapper controls"><div class="view-switch"><button id="bL" class="tg" aria-pressed="false">Trees</button><button id="bR" class="tg" aria-pressed="false">Details</button></div>
+<div class="primary-actions"><button id="bEdit" aria-pressed="false">Edit locations</button><button id="bSync">Team sync</button></div><div id="settingsDock" aria-label="Map settings"></div>
+<details class="more-actions"><summary>More</summary><div class="more-panel"><button id="bUndo" disabled>Undo last correction</button><button id="bSave">Save all changes</button></div></details></nav></header>
+<main class="noL noR">
+<aside id="left" aria-label="Survey data">
+<button id="bAddTree" class="p" type="button">＋ Add tree</button>
+<label id="drop" tabindex="0">Drop CSV files here or <u>choose files</u><input id="file" type="file" accept=".csv,.txt,.json" multiple></label>
+<div class="files" id="files"></div>
+<input type="search" id="q" placeholder="Search trees, remarks, files" aria-label="Search trees">
+<div id="cnt" class="hint" aria-live="polite">No survey loaded</div>
+<div class="row"><select id="fSrc" aria-label="Filter by file" style="flex:1"></select><select id="fSt" aria-label="Filter by status" style="flex:1"><option value="">All statuses</option><option>original</option><option>corrected</option><option>review</option><option>invalid</option></select></div>
+<label class="hint" style="display:flex;align-items:center;gap:7px"><input type="checkbox" id="showHidden"> Show hidden trees</label>
+<div id="list" role="listbox" aria-label="Trees"></div>
+<div class="row"><button id="bPh">Add photos from folder</button><button id="bPhF">Add photo files</button><input type="file" id="phDir" webkitdirectory multiple hidden><input type="file" id="phFiles" accept="image/jpeg,image/png,image/webp" multiple hidden></div>
+<div class="row"><button id="bTpl">Sample template</button><button id="bClear">Clear survey</button></div>
+</aside>
+<div id="mapwrap"><div id="map"></div><div id="warn"></div><div id="cur">–</div></div>
+<aside id="detail" aria-label="Tree details"></aside>
+</main>
+<dialog id="dPhoto" class="photo-zoom"><div class="photo-zoom-head"><b>Photo</b><button id="pzMinus" aria-label="Zoom out">−</button><button id="pzReset">Reset</button><button id="pzPlus" aria-label="Zoom in">+</button><button id="pzClose">Close</button></div><div class="photo-zoom-stage"><img id="pzImage" alt="Zoomed tree photo"></div></dialog>
+<footer id="bar"><label class="sw"><span>Measured</span><input type="checkbox" id="tgMode" role="switch" checked aria-label="Show corrected positions; switch off to show measured GPS positions"><i></i><span>Corrected</span></label><span id="modeNote" aria-live="polite"></span><span class="sp"></span>
+<div id="phnav" role="group" aria-label="Historical satellite imagery"><button id="bOld">Older image</button><span id="phinfo" aria-live="polite">Current imagery</span><button id="bNew" disabled>Newer image</button></div></footer>
+<div id="toast" role="status"></div>
+<dialog id="dMap"><h3 id="mTitle" style="margin-top:0"></h3><p id="mNote" class="hint"></p>
+<label for="mId">Tree ID column</label><select id="mId"></select>
+<label for="mLat">Latitude column (plotted first)</label><select id="mLat"></select>
+<label for="mLng">Longitude column (plotted first)</label><select id="mLng"></select>
+<div id="mPrev" style="overflow:auto;max-height:180px;margin-top:8px"></div>
+<p class="row" style="justify-content:flex-end"><button id="mNo">Skip file</button><button id="mYes" class="p">Import</button></p></dialog>
+<dialog id="dTree"><h3 id="treeDialogTitle" style="margin-top:0">Add a tree</h3><p class="hint">Enter the tree tag and its position. Age and diameter are optional; you can add photos and harvests from its profile.</p>
+<label for="newTreeId">Tree ID</label><input id="newTreeId" type="text" autocomplete="off" placeholder="e.g. J31">
+<label for="newTreeLat">Latitude</label><input id="newTreeLat" type="text" inputmode="decimal" placeholder="e.g. 15.49000">
+<label for="newTreeLng">Longitude</label><input id="newTreeLng" type="text" inputmode="decimal" placeholder="e.g. 120.97000">
+<div class="row"><button id="bUseGps" type="button">Use my GPS</button></div>
+<label for="newTreeAge">Age (years, optional)</label><input id="newTreeAge" type="text" inputmode="decimal" placeholder="Age">
+<label for="newTreeDia">Diameter (cm, optional)</label><input id="newTreeDia" type="text" inputmode="decimal" placeholder="Diameter">
+<p class="row" style="justify-content:flex-end"><button id="bTreeCancel" type="button">Cancel</button><button id="bTreeSave" class="p" type="button">Add tree</button></p></dialog>
+<dialog id="dHide"><h3 style="margin-top:0">Hide tree from map</h3><p class="hint">The tree, photos, coordinates, and records will be kept. Add a reason so the team can review this later.</p><label for="hideReason">Reason for hiding</label><textarea id="hideReason" rows="3" placeholder="Why should this tree be hidden?"></textarea><p class="row" style="justify-content:flex-end"><button id="bHideCancel" type="button">Cancel</button><button id="bHideConfirm" class="danger" type="button">Hide tree</button></p></dialog>
+<dialog id="dSync"><h3 style="margin-top:0">Team sign in</h3><p id="sIntro" class="hint">Sign in once on this device. Your session will reconnect automatically on future visits; your password is never saved.</p>
+<div id="loginFields"><label for="sEmail">Email</label><input type="email" id="sEmail" autocomplete="username" required><label for="sPw">Password</label><input type="password" id="sPw" autocomplete="current-password" required></div>
+<p id="sMsg" class="hint" role="status"></p><p class="row" style="justify-content:flex-end"><button id="sOut" style="display:none">Sign out</button><button id="sClose">Not now</button><button id="sGo" class="p">Sign in</button></p></dialog>
+<dialog id="dExp"><h3 style="margin-top:0">Export</h3><div id="expBtns" style="display:grid;gap:6px"></div>
+<h4 style="margin:14px 0 4px">Map image (PNG of the current view)</h4>
+<div style="display:grid;gap:2px"><label><input type="checkbox" id="oLeg" checked> Legend (marker colors and walks)</label><label><input type="checkbox" id="oCap" checked> Caption, scale bar and attribution</label><label><input type="checkbox" id="oLbl" checked> Tree ID labels (zoom 19 and closer)</label>
+<label>Size <select id="oSz"><option value="1">Screen size</option><option value="2">2x larger (same imagery detail)</option></select></label><button id="bImg" class="p" style="margin-top:6px">Save map image</button></div>
+<p class="row" style="justify-content:flex-end"><button id="xClose">Close</button></p></dialog>
+<script src="./config.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script>
+// Optional: paste your Google Map Tiles API key between the quotes to avoid ever typing it again.
+const APP_CONFIG=window.TREE_SURVEY_CONFIG||{};
+const GOOGLE_KEY=String(APP_CONFIG.googleMapsApiKey||'').trim();
+const SUPABASE_URL=String(APP_CONFIG.supabaseUrl||'').trim();
+const SUPABASE_PUBLISHABLE_KEY=String(APP_CONFIG.supabasePublishableKey||'').trim();
+const DEFAULT_SURVEY=String(APP_CONFIG.defaultSurvey||'demo-survey');
+const SRC_HTML='<!doctype html>\n'+document.documentElement.outerHTML;
+const SHARED=window.SHARED_DATA||null,RO=!!SHARED;
+const $=s=>document.querySelector(s);
+const el=(t,p={},...k)=>{const e=document.createElement(t);for(const[a,v]of Object.entries(p)){if(a==='text')e.textContent=v;else if(a in e)e[a]=v;else e.setAttribute(a,v)}e.append(...k);return e};
+const S={recs:[],cols:[],files:[],sel:null,edit:false,pending:null,undo:[],queue:[],op:.9,n:0,mode:'corrected'};
+const markers={};let dragM=null,cur1=null;let activeSite=null;const siteLines={};let siteOverlays=null;const SITE_GROUPS=(Array.isArray(APP_CONFIG.siteGroups)?APP_CONFIG.siteGroups:[]).filter(x=>x&&typeof x.name==='string'&&Array.isArray(x.ids)).map(x=>({name:x.name,ids:x.ids.map(String)}));
+const act=r=>r.c_lat!=null?[r.c_lat,r.c_lng]:r.o_lat!=null?[r.o_lat,r.o_lng]:null;
+const posMain=r=>S.mode==='measured'&&r.o_lat!=null?[r.o_lat,r.o_lng]:act(r);
+const stOf=r=>r.c_lat!=null?'corrected':r.o_lat==null?'invalid':r.warn?'review':'original';
+const disp=r=>r.c_lat!=null&&r.o_lat!=null?L.latLng(r.o_lat,r.o_lng).distanceTo([r.c_lat,r.c_lng]):null;
+const f7=n=>n==null?'–':n.toFixed(7), fm=n=>n==null?'–':n.toFixed(2)+' m';
+const num=s=>{const t=String(s??'').trim();if(!t)return null;const v=Number(t);return isFinite(v)?v:null};
+const cur=()=>S.recs.find(r=>r.uid===S.sel);
+let tt;const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(tt);tt=setTimeout(()=>t.style.display='none',3500)};
+const setStat=m=>$('#stat').textContent=m;
+// ---------- persistence ----------
+const DB=new Promise((ok,no)=>{if(!window.indexedDB)return no();const q=indexedDB.open('treemap',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error)});
+const idb=async(mode,fn)=>{const db=await DB;return new Promise((ok,no)=>{const t=db.transaction('kv',mode);const r=fn(t.objectStore('kv'));t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>no(t.error)})};
+const persist=()=>RO?Promise.resolve():idb('readwrite',s=>s.put({recs:S.recs,cols:S.cols,files:S.files},'survey')).then(()=>{setStat(`Saved · ${S.recs.length} trees`);flagDirty(false);if(SY&&SY.c)scheduleSurveySave()}).catch(()=>toast('Local save failed. Export a backup instead.'));
+const flagDirty=d=>{try{d?localStorage.setItem('tm_dirty','1'):localStorage.removeItem('tm_dirty')}catch(e){}};
+// ---------- map ----------
+const isLaptop=()=>matchMedia('(min-width:901px) and (min-height:601px)').matches;
+const map=L.map('map',{maxZoom:22,zoomControl:true}).setView([15.49,120.97],isLaptop()?19:6);siteOverlays=L.layerGroup().addTo(map);
+let gpsWatch=null,gpsPoint=null,gpsAccuracy=null;const gpsLayer=L.layerGroup().addTo(map);
+function updateGpsDistance(){const out=$('#gpsDistance');if(!out)return;const r=cur(),target=r&&posMain(r);
+ if(!gpsPoint){out.textContent='GPS off · start tracking to check distance from this tree';return}
+ const acc=Number.isFinite(gpsAccuracy)?` · accuracy ±${Math.round(gpsAccuracy)} m`:'';
+ out.textContent=target?`${fm(map.distance(gpsPoint,target))} from your GPS location${acc}`:`Your location: ${gpsPoint.lat.toFixed(5)}, ${gpsPoint.lng.toFixed(5)}${acc}`}
+function stopGps(){if(gpsWatch!==null&&navigator.geolocation)navigator.geolocation.clearWatch(gpsWatch);gpsWatch=null;gpsPoint=null;gpsAccuracy=null;gpsLayer.clearLayers();const b=$('#bGps');if(b){b.textContent='Start GPS';b.setAttribute('aria-label','Start GPS tracking');b.setAttribute('aria-pressed','false')}updateGpsDistance()}
+function toggleGps(){if(gpsWatch!==null){stopGps();toast('GPS tracking stopped');return}if(!navigator.geolocation){toast('GPS is unavailable in this browser');return}
+ const b=$('#bGps');if(b){b.textContent='Starting GPS…';b.setAttribute('aria-label','Starting GPS tracking');b.disabled=true}
+ gpsWatch=navigator.geolocation.watchPosition(p=>{const c=p.coords,first=!gpsPoint;gpsPoint=L.latLng(c.latitude,c.longitude);gpsAccuracy=Number.isFinite(c.accuracy)?c.accuracy:null;gpsLayer.clearLayers();
+  if(gpsAccuracy>0)L.circle(gpsPoint,{radius:gpsAccuracy,color:'#1769aa',weight:2,fillColor:'#4da3ff',fillOpacity:.12,interactive:false}).addTo(gpsLayer);
+  L.circleMarker(gpsPoint,{radius:8,color:'#fff',weight:3,fillColor:'#0878d1',fillOpacity:1}).bindTooltip('You are here',{direction:'top'}).addTo(gpsLayer);
+  if(first)map.setView(gpsPoint,Math.max(map.getZoom(),18));const ctl=$('#bGps');if(ctl){ctl.disabled=false;ctl.textContent='Stop GPS';ctl.setAttribute('aria-label','Stop GPS tracking');ctl.setAttribute('aria-pressed','true')}updateGpsDistance();
+ },e=>{const ctl=$('#bGps');if(ctl)ctl.disabled=false;if(e.code===1){stopGps();toast('Location permission was denied. Allow location access in your browser settings.')}else toast('Could not get a GPS fix. Move outdoors and try again.')},{enableHighAccuracy:true,maximumAge:1000,timeout:20000});
+ if(gpsWatch===null){if(b){b.disabled=false;b.textContent='Start GPS'}toast('Could not start GPS tracking')}}
+const esri=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Imagery © Esri, Maxar, Earthstar Geographics, GIS User Community'}).addTo(map);
+const osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxNativeZoom:19,maxZoom:21,attribution:'© OpenStreetMap contributors'});
+const labels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:18,maxZoom:21});
+const clarity=L.tileLayer('https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxNativeZoom:19,maxZoom:21,attribution:'Imagery © Esri Clarity, Maxar, Earthstar Geographics'});
+const tileLayers=[esri,clarity];let customL=null,tileErr=0;
+const HINT={'Google satellite':'Check the API key, that billing and the Map Tiles API are enabled, and any key restrictions. You can also lower the zoom limit.','Historical imagery':'This release may have no image here. Try another date or lower the zoom limit.','Custom tiles':'Check the URL template and key.'};
+const hookErr=l=>{let n=0;const lb=l.options.label||'Imagery',clr=()=>{n=0;const w=$('#warn');if(w.dataset.by===lb){w.style.display='none';w.dataset.by=''}};
+ l.on('tileerror',()=>{if(lb==='Historical imagery'&&l.options.maxNativeZoom>9)return;if(++n>3){const w=$('#warn');w.textContent=`${lb}: tiles could not load. `+(HINT[lb]||'Check your internet connection, or switch to another source.')+' (click to dismiss)';w.style.display='block';w.dataset.by=lb}});
+ l.on('tileload',clr);l.on('remove',clr)};
+esri.options.label='Esri satellite';clarity.options.label='Esri Clarity';tileLayers.forEach(l=>hookErr(l));
+$('#warn').style.cursor='pointer';$('#warn').onclick=function(){this.style.display='none'};
+const rnd=L.canvas({padding:.5}),activeL=L.layerGroup().addTo(map);
+const lc=L.control.layers({'Esri satellite':esri,'Esri Clarity satellite':clarity,'Street map':osm},{'Trees':activeL,'Place labels':labels},{collapsed:false}).addTo(map);
+map.createPane('trace').style.zIndex=390;
+const svgR=L.svg({pane:'trace'}),traceL=L.layerGroup().addTo(map);let tOrd='id';
+const timeCol=()=>{for(const c of S.cols)if(/capture|time|date|stamp/i.test(c)&&S.recs.filter(r=>!isNaN(Date.parse(r.raw[c]))).length>S.recs.length/2)return c;return null};
+const WPAL=['#2f7bff','#ff3b3b','#a855f7','#00d1b2','#ff7a00','#f032e6'],WC={},hiddenW=new Set(),knownW=new Set();let wbox=document.createElement('div');wbox.id='walks';wbox.style.display='none';
+let lastRows=[];
+function renderWalks(rows){lastRows=rows;const t=$('#trsum');if(t)t.textContent=rows.length?'':'Walk trace needs IDs like J1, J2, J3.';if(!wbox)return;
+ const f=document.activeElement&&wbox.contains(document.activeElement)?document.activeElement.getAttribute('aria-label'):null;
+ wbox.style.display=rows.length?'block':'none';wbox.replaceChildren();if(!rows.length)return;
+ wbox.append(el('div',{className:'row',style:'justify-content:space-between;align-items:center;margin-bottom:4px'},el('b',{text:'Walks'}),el('span',{},el('button',{text:'All','aria-label':'Show all walks',onclick:()=>{hiddenW.clear();drawTrace()}}),' ',el('button',{text:'None','aria-label':'Hide all walks',onclick:()=>{rows.forEach(r=>hiddenW.add(r.k));drawTrace()}}))),
+  ...rows.map(r=>{const cb=el('input',{type:'checkbox',checked:!hiddenW.has(r.k),'aria-label':'Show walk '+r.nm,onchange:()=>{cb.checked?hiddenW.delete(r.k):hiddenW.add(r.k);drawTrace()}});
+   return el('label',{style:'display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer'},cb,el('span',{style:`flex:none;width:22px;border-top:4px dotted ${r.col}`}),el('span',{style:'font-size:12px',text:`${r.nm}: ${r.n} trees, ${Math.round(r.len)} m`}))}));
+ if(f){const e=[...wbox.querySelectorAll('input,button')].find(x=>x.getAttribute('aria-label')===f);if(e)e.focus()}}
+function drawTrace(){traceL.clearLayers();const tc=tOrd==='time'?timeCol():null,g={},rows=[],multi=new Set(S.recs.map(r=>r.source)).size>1;
+ S.recs.forEach(r=>{if(r.hidden)return;const p=posMain(r);if(!p)return;const m=/^\s*([A-Za-z]*)[\s\-_]*0*(\d+)\s*$/.exec(r.id||''),ser=m?m[1].toUpperCase():'?',k=r.source+'\u0001'+ser;
+  (g[k]=g[k]||{k,ser,src:r.source,a:[]}).a.push({p,n:m?+m[2]:Infinity,t:tc?Date.parse(r.raw[tc]):NaN})});
+ Object.values(g).forEach(x=>{if(x.a.length<2)return;if(!knownW.has(x.k)){hiddenW.add(x.k);knownW.add(x.k)}x.a.sort((u,v)=>!isNaN(u.t)&&!isNaN(v.t)&&u.t!==v.t?u.t-v.t:u.n-v.n);
+  const pts=x.a.map(q=>q.p),short=x.ser==='?'?'Other':x.ser||'All',col=WC[x.k]||(WC[x.k]=WPAL[Object.keys(WC).length%WPAL.length]);let len=0;for(let i=1;i<pts.length;i++)len+=L.latLng(pts[i-1]).distanceTo(pts[i]);
+  rows.push({k:x.k,nm:short+(multi?` (${x.src})`:''),col,n:pts.length,len});if(hiddenW.has(x.k))return;
+  const o={renderer:svgR,lineCap:'round',dashArray:'0 9',interactive:false};
+  L.polyline(pts,{...o,color:'#fff',weight:7,opacity:.6}).addTo(traceL);L.polyline(pts,{...o,color:col,weight:4}).addTo(traceL);
+  L.marker(pts[0],{pane:'trace',interactive:false,icon:L.divIcon({className:'',iconSize:[0,0],html:`<span class="ts" style="color:${col}">${short} start</span>`})}).addTo(traceL)});
+ renderWalks(rows)}
+L.control.scale({imperial:false}).addTo(map);
+let googleL=null,gSess=null,gKey=null,gCopy='',gT;
+async function addGoogle(key,activate){
+ let j=null;try{const c=JSON.parse(localStorage.getItem('tm_gsess')||'null');if(c&&c.key===key&&+c.expiry*1000>Date.now()+864e5)j=c}catch(e){}
+ if(!j){const r=await fetch('https://tile.googleapis.com/v1/createSession?key='+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mapType:'satellite',language:'en-US',region:'PH'})});
+  if(!r.ok)throw new Error('HTTP '+r.status);j=await r.json();try{localStorage.setItem('tm_gsess',JSON.stringify({key,session:j.session,expiry:j.expiry}))}catch(e){}}
+ gKey=key;gSess=j.session;
+ if(googleL){lc.removeLayer(googleL);const i=tileLayers.indexOf(googleL);if(i>=0)tileLayers.splice(i,1)}
+ googleL=L.tileLayer(`https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=${gSess}&key=${encodeURIComponent(key)}`,{maxNativeZoom:21,maxZoom:22,label:'Google satellite',attribution:'Map data © Google'});
+ hookErr(googleL);tileLayers.push(googleL);lc.addBaseLayer(googleL,'Google satellite');
+ if(activate){[esri,clarity,osm,customL].forEach(x=>x&&map.removeLayer(x));googleL.addTo(map)}}
+async function updG(){if(!googleL||!map.hasLayer(googleL))return;const b=map.getBounds();
+ try{const r=await fetch(`https://tile.googleapis.com/tile/v1/viewport?session=${gSess}&key=${encodeURIComponent(gKey)}&zoom=${map.getZoom()}&north=${b.getNorth()}&south=${b.getSouth()}&east=${b.getEast()}&west=${b.getWest()}`);
+  if(!r.ok)return;const j=await r.json();if(gCopy)map.attributionControl.removeAttribution(gCopy);gCopy=j.copyright||'';if(gCopy)map.attributionControl.addAttribution(gCopy)}catch(e){}}
+map.on('moveend',()=>{clearTimeout(gT);gT=setTimeout(updG,400)});
+map.on('baselayerchange',e=>{if(e.layer===googleL)updG();else if(gCopy){map.attributionControl.removeAttribution(gCopy);gCopy=''}});
+function addCustom(url,activate){if(customL)lc.removeLayer(customL);customL=L.tileLayer(url,{maxNativeZoom:+$('#nz').value,maxZoom:22,label:'Custom tiles',attribution:'Custom imagery source'});hookErr(customL);tileLayers.push(customL);lc.addBaseLayer(customL,'Custom satellite');
+ if(activate){[esri,clarity,osm,googleL].forEach(x=>x&&map.removeLayer(x));customL.addTo(map)}}
+const ImgC=L.Control.extend({onAdd(){const d=L.DomUtil.create('div');d.style.cssText='position:relative;z-index:1600';
+ d.innerHTML='<button id="bSet" aria-expanded="false" aria-controls="setBody">Settings</button><div id="setBody" style="display:none;gap:8px"><button id="bFit">Fit all trees</button><button id="bExp">Export CSV and data…</button><section class="map-setting-group"><b>Map layers</b><div id="layerDock"></div></section><section class="map-setting-group"><b>Walks</b><p id="trsum" class="hint" style="margin:2px 0"></p><div id="walkDock"></div></section><label>Marker opacity <input id="mop" type="range" min="0.2" max="1" step="0.1" value="0.9"></label><label>Walk trace order <select id="tord" aria-label="Walk trace order"><option value="id">Tree ID number</option><option value="time">Capture time</option></select></label><label>Real imagery up to zoom <select id="nz" aria-label="Highest zoom with real imagery"><option>16</option><option>17</option><option>18</option><option selected>19</option><option>20</option><option>21</option></select></label><button id="bGoog">Use Google satellite</button><button id="bCust">Custom satellite tiles</button></div>';
+ d.querySelector('#layerDock').append(lc.getContainer());d.querySelector('#walkDock').append(wbox);
+ d.querySelector('#bFit').onclick=fit;
+ d.querySelector('#bSet').onclick=e=>{const b=d.querySelector('#setBody'),o=b.style.display==='none';b.style.display=o?'grid':'none';e.target.setAttribute('aria-expanded',o)};
+ d.querySelector('#tord').onchange=e=>{tOrd=e.target.value;if(tOrd==='time'&&!timeCol())toast('No capture-time column found. Ordering by tree ID number.');drawTrace()};
+ d.querySelector('#mop').oninput=e=>{S.op=+e.target.value;S.recs.forEach(styleRec)};
+ d.querySelector('#nz').onchange=e=>tileLayers.forEach(l=>{l.options.maxNativeZoom=+e.target.value;l.redraw()});
+ d.querySelector('#bGoog').onclick=async()=>{let old='';try{old=localStorage.getItem('tm_gkey')||''}catch(e){}
+  const k=GOOGLE_KEY.trim()||(prompt('Google Maps Platform API key with the Map Tiles API enabled (usage is billed to your Google account):',old)||'').trim();if(!k)return;
+  try{await addGoogle(k,true);let sv=false;try{localStorage.setItem('tm_gkey',k);sv=true}catch(e){}try{await idb('readwrite',x=>x.put(k,'pref:gkey'));sv=true}catch(e){}toast(sv?'Google satellite added and saved on this device':'Google satellite added, but this browser would not save the key')}catch(e){toast('Google rejected the key. Enable the Map Tiles API and billing for it. ('+e.message+')')}};
+ d.querySelector('#bCust').onclick=()=>{const u=prompt('Tile URL template with {z}, {x}, {y} (for example from Mapbox, Maxar, or your own server; check that provider\'s terms and add your key to the URL):');
+  if(!u)return;if(!/\{z\}/.test(u)||!/\{x\}/.test(u)||!/\{y\}/.test(u)){toast('The URL needs {z}, {x} and {y}');return}
+  addCustom(u,true);try{localStorage.setItem('tm_custom',u)}catch(e){}};
+ L.DomEvent.disableClickPropagation(d);L.DomEvent.disableScrollPropagation(d);return d}});const settingsControl=new ImgC({position:'topleft'}).addTo(map);$('#settingsDock').append(settingsControl.getContainer());
+const GpsC=L.Control.extend({onAdd(){const b=L.DomUtil.create('button','gps-button');b.id='bGps';b.type='button';b.textContent='Start GPS';b.setAttribute('aria-label','Start GPS tracking');b.setAttribute('aria-pressed','false');b.onclick=toggleGps;L.DomEvent.disableClickPropagation(b);return b}});new GpsC({position:'topright'}).addTo(map);
+try{const u=localStorage.getItem('tm_custom');if(u)addCustom(u,false)}catch(e){}
+function setMode(m){S.mode=m;$('#tgMode').checked=m==='corrected';S.recs.forEach(ensure);drawSites();drawTrace();updCounts();if(cur())renderDetail();toast(m==='corrected'?'Showing corrected positions':'Showing measured GPS positions')}
+const ModeC=L.Control.extend({onAdd(){const d=L.DomUtil.create('div');d.style.cssText='background:#fff;padding:6px 10px;border-radius:4px';
+ d.innerHTML='<label class="sw"><span>Measured</span><input type="checkbox" id="tgMode" role="switch" checked aria-label="Show corrected positions; switch off to show measured GPS positions"><i></i><span>Corrected</span></label>';
+ d.querySelector('input').onchange=e=>setMode(e.target.checked?'corrected':'measured');L.DomEvent.disableClickPropagation(d);return d}});
+map.createPane('wbp');map.getPane('wbp').style.zIndex=250;
+const WBC='https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json';let wb=[],wbL=null;
+async function loadWb(){const r=await fetch(WBC);if(!r.ok)throw 0;const j=await r.json();
+ wb=Object.values(j).map(v=>{const m=/(\d{4}-\d{2}-\d{2})/.exec(v.itemTitle||'');return{date:m?m[1]:'',url:String(v.itemURL||'').replace('{level}','{z}').replace('{row}','{y}').replace('{col}','{x}')}}).filter(x=>x.date&&/\{z\}/.test(x.url)).sort((a,b)=>b.date.localeCompare(a.date));if(!wb.length)throw 0}
+const tileXY=(lat,lng,z)=>{const n=2**z,la=lat*Math.PI/180;return[Math.floor((lng+180)/360*n),Math.floor((1-Math.log(Math.tan(la)+1/Math.cos(la))/Math.PI)/2*n)]};
+async function probe(url,z,x,y){const u=url.replace('{z}',z).replace('{x}',x).replace('{y}',y);
+ try{const r=await fetch(u);if(!r.ok)return null;const b=new Uint8Array(await r.arrayBuffer());if(b.length<200)return null;let h=2166136261;for(let i=0;i<b.length;i+=7)h=Math.imul(h^b[i],16777619);return b.length+':'+(h>>>0)}
+ catch(e){return new Promise(ok=>{const im=new Image();im.onload=()=>ok('img:'+Math.random());im.onerror=()=>ok(null);im.src=u})}}
+const WbC=L.Control.extend({onAdd(){const d=L.DomUtil.create('div');d.style.cssText='background:#fff;padding:6px 8px;border-radius:4px;width:260px;max-height:70vh;overflow:auto';let wi=-1,avail=[],st=0,sc=null,loading=null;
+ const open=el('button',{text:'Historical imagery',style:'width:100%'}),box=el('div',{style:'display:none;margin-top:6px'}),sel=el('select',{'aria-label':'Historical imagery release'}),
+  info=el('p',{className:'hint',style:'margin:4px 0 0'}),sum=el('p',{className:'hint',style:'margin:4px 0 0'}),
+  prev=el('button',{text:'Older image'}),next=el('button',{text:'Newer image'}),rescan=el('button',{text:'Scan this location'});
+ const bar=()=>{const n=avail.length,p=avail.indexOf(wi),ld=wb.length>0;$('#phinfo').textContent=wi<0?(ld&&!n?'No older imagery here':'Current imagery'):`Historical ${wb[wi].date} (${p+1} of ${n})`;$('#bOld').disabled=ld&&(n===0||(wi>=0&&p>=n-1));$('#bNew').disabled=wi<0};
+ const show=i=>{if(wbL){map.removeLayer(wbL);const k=tileLayers.indexOf(wbL);if(k>=0)tileLayers.splice(k,1);wbL=null}
+  if(i<0||!wb[i]){wi=-1;sel.value='-1';info.textContent='Historical layer hidden.';bar();return}
+  wi=i;wbL=L.tileLayer(wb[i].url,{pane:'wbp',label:'Historical imagery',maxNativeZoom:wb[i].nz||+$('#nz').value,maxZoom:22,opacity:1,attribution:'Esri World Imagery Wayback '+wb[i].date});
+  hookErr(wbL);tileLayers.push(wbL);const lay=wbL;let wt,told=false;
+  lay.on('tileerror',e=>{const z=e.coords.z;if(z<=lay.options.maxNativeZoom&&z>9){lay.options.maxNativeZoom=z-1;if(!told){told=true;toast(`This release has no detail beyond zoom ${z-1} here. Showing enlarged tiles.`)}clearTimeout(wt);wt=setTimeout(()=>lay.redraw(),150)}});
+  wbL.addTo(map);sel.value=String(i);bar();
+  info.textContent=`Release ${wb[i].date}. This is the release date; the photo itself may be older.`+(wb[i].nz&&wb[i].nz<+$('#nz').value?` Detail here goes to zoom ${wb[i].nz}.`:'')};
+ const fill=()=>sel.replaceChildren(el('option',{value:'-1',text:'Hidden'}),...avail.map(i=>el('option',{value:String(i),text:wb[i].label||wb[i].date})));
+ const scan=async()=>{if(!wb.length)return;sc={c:map.getCenter(),z:map.getZoom()};const tok=++st,c=map.getCenter(),z0=Math.max(10,Math.min(Math.round(map.getZoom()),+$('#nz').value)),res=new Array(wb.length),q=wb.map((_,i)=>i);let done=0;
+  const w=async()=>{while(q.length&&tok===st){const i=q.shift();let f=null;for(let z=z0;z>=Math.max(9,z0-3)&&!f;z--){const[x,y]=tileXY(c.lat,c.lng,z),h=await probe(wb[i].url,z,x,y);if(h)f={z,h}}res[i]=f;done++;sum.textContent=`Checking releases ${done}/${wb.length}…`}};
+  await Promise.all(Array.from({length:8},w));if(tok!==st)return;
+  const seen={};for(let i=wb.length-1;i>=0;i--){const f=res[i];if(!f)continue;wb[i].nz=f.z;if(seen[f.h])seen[f.h].n++;else seen[f.h]={i,n:1}}
+  const g=Object.values(seen);g.forEach(x=>{const f=res[x.i];wb[x.i].label=`${wb[x.i].date}${f.z<z0?` (zoom ${f.z})`:''}${x.n>1?`, +${x.n-1} same`:''}`});
+  avail=g.map(x=>x.i).sort((a,b)=>a-b);fill();if(wbL&&!avail.includes(wi))show(-1);sel.value=wi<0?'-1':String(wi);bar();
+  sum.textContent=avail.length?`${avail.length} different images here at zoom ${z0} (${wb.length} releases checked). Move the map and scan again to refresh.`:'No release has imagery here. Zoom out or move the map, then scan again.'};
+ const ensure=()=>wb.length?Promise.resolve():(loading=loading||(async()=>{try{$('#phinfo').textContent='Loading imagery history…';await loadWb();avail=wb.map((_,i)=>i);fill();info.textContent='Pick a release to overlay.';await scan()}catch(e){toast('Could not load historical imagery. Check your connection.')}loading=null;bar()})());
+ const step=async d=>{await ensure();if(!avail.length){bar();return}
+  if(sc&&wi>=0){const y=map.getSize().y/2,w=map.containerPointToLatLng([0,y]).distanceTo(map.containerPointToLatLng([map.getSize().x,y]));if(map.getCenter().distanceTo(sc.c)>w*.4||Math.abs(map.getZoom()-sc.z)>=2){await scan();toast('Imagery list refreshed for this area')}}
+  const p=wi<0?-1:avail.indexOf(wi),q=p+d;if(q<0)show(-1);else show(avail[Math.min(avail.length-1,q)])};window.wbStep=step;
+ open.onclick=()=>{const hide=box.style.display!=='none';box.style.display=hide?'none':'block';if(!hide)ensure()};
+ sel.onchange=()=>show(+sel.value);rescan.onclick=scan;prev.onclick=()=>step(1);next.onclick=()=>step(-1);
+ box.append(sel,el('div',{style:'display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:6px 0'},prev,next,Object.assign(rescan,{style:'grid-column:1 / span 2'})),info,sum);d.append(open,box);
+ L.DomEvent.disableClickPropagation(d);L.DomEvent.disableScrollPropagation(d);return d}});new WbC().onAdd(map); // logic only: the historical imagery panel is not shown; the bottom bar drives it
+const OpC=L.Control.extend({onAdd(){const d=L.DomUtil.create('div');d.style.cssText='background:#fff;padding:4px 8px;border-radius:4px';d.innerHTML='<label>Marker opacity <input type="range" min="0.2" max="1" step="0.1" value="0.9" aria-label="Marker opacity"></label>';d.querySelector('input').oninput=e=>{S.op=+e.target.value;S.recs.forEach(styleRec)};L.DomEvent.disableClickPropagation(d);return d}});
+map.on('mousemove',e=>$('#cur').textContent=`${e.latlng.lat.toFixed(7)}, ${e.latlng.lng.toFixed(7)}`);
+function fit(){const p=S.recs.filter(r=>!r.hidden).map(posMain).filter(Boolean);if(p.length)map.fitBounds(L.latLngBounds(p).pad(.1),{maxZoom:19})}
+function siteTrees(site){const wanted=new Set(site.ids.map(nid));return S.recs.filter(r=>!r.hidden&&wanted.has(nid(r.id))&&posMain(r))}
+function drawSites(){siteOverlays.clearLayers();for(const k of Object.keys(siteLines))delete siteLines[k];for(const site of SITE_GROUPS){const trees=siteTrees(site),pts=trees.map(posMain);if(pts.length<2)continue;const center=[pts.reduce((a,p)=>a+p[0],0)/pts.length,pts.reduce((a,p)=>a+p[1],0)/pts.length];const spokes={};trees.forEach((r,i)=>{spokes[r.uid]=L.polyline([center,pts[i]],{color:'#f4bb00',weight:3.5,opacity:1,className:'site-route',interactive:false}).addTo(siteOverlays)});siteLines[site.name]=spokes;const icon=L.divIcon({className:'site-center-icon',html:`<span class="site-hub"><span class="site-center" aria-label="Open ${site.name} profiles">${site.name.slice(-1)}</span><span class="site-center-label">${site.name}</span></span>`,iconSize:[114,40],iconAnchor:[19,20]});L.marker(center,{icon,zIndexOffset:1200,title:`${site.name} tree profiles`}).addTo(siteOverlays).on('click',()=>showSiteProfile(site.name))}}
+function siteHarvest(r){const h=r.hv||[];if(!h.length)return'No harvest recorded';const totals={};h.forEach(x=>totals[x.unit]=(totals[x.unit]||0)+(+x.qty||0));return Object.entries(totals).map(([u,n])=>`${Number(n.toFixed(2))} ${u}`).join(', ')+` · ${h.length} record${h.length===1?'':'s'}`}
+function showSiteProfile(name){const site=SITE_GROUPS.find(x=>x.name===name);if(!site)return;activeSite=name;const trees=siteTrees(site);const d=$('#detail');d.replaceChildren(el('div',{className:'row detail-heading'},el('h2',{text:name,style:'margin:0'}),el('button',{text:'Close','aria-label':'Close site profiles',onclick:closeDetail})),el('p',{className:'hint',text:`${trees.length} tree profile${trees.length===1?'':'s'}`}));const list=el('div',{className:'site-card-list'});for(const id of site.ids){const r=trees.find(x=>nid(x.id)===nid(id));if(!r){list.append(el('article',{className:'site-tree-card',style:'opacity:.65'},el('span',{className:'site-no-photo',text:'No tree photo'}),el('span',{className:'site-meta'},el('b',{text:'Tree '+id}),el('small',{text:'Not found in loaded survey'}))));continue}const photo=r.th?el('img',{src:r.th,alt:`Photo of tree ${r.id}`,loading:'lazy',title:'Tap to zoom',onclick:()=>openPhotoZoom(r.th)}):el('span',{className:'site-no-photo',text:r.np?'Loading photo…':'No tree photo'});if(!r.th&&r.np){loadPhotos(r.uid).then(async a=>{const src=a&&a.length?await photoSrc(r,a.length-1,a[a.length-1]):null;if(src&&photo.isConnected){const im=el('img',{src,alt:`Photo of tree ${r.id}`,loading:'lazy',title:'Tap to zoom',onclick:()=>openPhotoZoom(src)});photo.replaceWith(im)}}).catch(()=>{if(photo.isConnected)photo.textContent='Photo unavailable'})}const[age]=eff(r,'age'),[dia]=eff(r,'dia');const facts=el('span',{className:'site-facts'},el('span',{},el('b',{text:'Age: '}),document.createTextNode(age==null?'–':`${age} years`)),el('span',{},el('b',{text:'Diameter: '}),document.createTextNode(dia==null?'–':`${dia} cm`)),el('span',{style:'grid-column:1/-1'},el('b',{text:'Harvest: '}),document.createTextNode(siteHarvest(r))));list.append(el('article',{className:'site-tree-card'},photo,el('span',{className:'site-meta'},el('b',{text:'Tree '+r.id}),facts)))}d.append(list);panel('R',true);const pts=trees.map(posMain);if(pts.length)map.fitBounds(L.latLngBounds(pts).pad(.18),{maxZoom:19})}
+
+function styleOf(r){const s=stOf(r),sel=r.uid===S.sel;const c=sel?'#ff3d81':s==='corrected'&&S.mode==='corrected'?'#b6ff3b':s==='review'?'#ff8a1f':'#28c8ff';return{renderer:rnd,radius:sel?9:6,color:sel?'#fff':'#0b1d14',weight:sel?2.5:1.5,fillColor:c,fillOpacity:S.op,opacity:S.op}}
+function styleRec(r){if(markers[r.uid])markers[r.uid].setStyle(styleOf(r))}
+function drop(o,l,u){if(o[u]){l.removeLayer(o[u]);delete o[u]}}
+function ensure(r){if(r.hidden){drop(markers,activeL,r.uid);return}const a=posMain(r);
+ if(!a)drop(markers,activeL,r.uid);else if(markers[r.uid]){markers[r.uid].setLatLng(a);styleRec(r)}
+ else{const m=L.circleMarker(a,styleOf(r)).bindTooltip(r.id||'(no ID)',{permanent:S.recs.length<=800,direction:'right',offset:[7,0],className:'tl'});m.on('click',()=>select(r.uid,false));m.addTo(activeL);markers[r.uid]=m}}
+function rebuild(){activeL.clearLayers();for(const k in markers)delete markers[k];S.recs.forEach(ensure);drawSites();fillSrc();renderFiles();renderList();syncDrag();renderDetail();drawTrace();updCounts();fit()}
+// ---------- import ----------
+const norm=s=>s.toLowerCase().replace(/[_\-]+/g,' ').replace(/\s+/g,' ').trim();
+const RE={id:/^(tree\s*(id|no\.?|number)?|id|tag name|tag|label)$/,lat:/^(gps |estimated |calculated )?lat(itude)?$/,lng:/^(gps |estimated |calculated )?(lng|lon|long|longitude)$/};
+function handleFiles(fs){[...fs].forEach(f=>{
+ if(/\.json$/i.test(f.name))return f.text().then(async t=>{try{const d=JSON.parse(t);if(!Array.isArray(d.recs))throw 0;Object.keys(PH).forEach(k=>delete PH[k]);for(const[u,a]of Object.entries(d.photos||{})){PH[u]=a;await idb('readwrite',x=>x.put(a,'ph:'+u))}S.recs=d.recs;S.cols=d.cols||[];S.files=d.files||[];rebuild();persist();toast('Backup restored')}catch(e){toast('That JSON is not a backup from this app')}});
+ Papa.parse(f,{header:true,skipEmptyLines:'greedy',transformHeader:h=>h.trim(),complete:res=>{
+  if(!res.data.length||!res.meta.fields||res.meta.fields.length<2){toast(`${f.name}: empty or unreadable file`);return}
+  S.queue.push({name:f.name,rows:res.data,cols:res.meta.fields});if(!$('#dMap').open)nextImport()},error:()=>toast(`${f.name}: could not read file`)})})}
+let job=null;
+function nextImport(){job=S.queue.shift();if(!job)return;const {cols}=job,none='';
+ for(const k of['Id','Lat','Lng']){const s=$('#m'+k);s.replaceChildren(el('option',{value:'',text:'(none)'}),...cols.map(c=>el('option',{value:c,text:c})));s.value=(k==='Lat'&&cols.includes('app_original_latitude')?'app_original_latitude':k==='Lng'&&cols.includes('app_original_longitude')?'app_original_longitude':cols.find(c=>RE[k.toLowerCase()].test(norm(c))))||'';s.onchange=prev}
+ const nl=cols.filter(c=>RE.lat.test(norm(c))).length;
+ $('#mTitle').textContent=job.name;$('#mNote').textContent=`${job.rows.length} rows. `+(nl>1?'Several latitude/longitude columns found: choose the pair to plot first (for example estimated or calculated). ':'')+(cols.includes('app_corrected_latitude')?'This looks like an export from this app: saved corrections and profile values will be restored. ':'')+'All other columns are kept unchanged.';
+ prev();$('#dMap').showModal()}
+function prev(){const m=maps(),t=el('table'),h=el('tr');['Tree ID','Latitude','Longitude','Valid?'].forEach(x=>h.append(el('th',{text:x,style:'width:auto'})));t.append(h);
+ job.rows.slice(0,5).forEach(r=>{const c=chk(num(r[m.lat]),num(r[m.lng]));t.append(el('tr',{},el('td',{text:r[m.id]??''}),el('td',{text:r[m.lat]??''}),el('td',{text:r[m.lng]??''}),el('td',{text:c||'yes'})))});$('#mPrev').replaceChildren(t)}
+const maps=()=>({id:$('#mId').value,lat:$('#mLat').value,lng:$('#mLng').value});
+function chk(la,ln){if(la==null||ln==null)return'Missing or not numeric';if(Math.abs(la)>90)return'Latitude outside ±90 (swapped columns?)';if(Math.abs(ln)>180)return'Longitude outside ±180';if(!la&&!ln)return'Coordinates are 0,0';return''}
+$('#mNo').onclick=()=>{$('#dMap').close();nextImport()};
+$('#mYes').onclick=()=>{const m=maps();if(!m.lat||!m.lng){toast('Choose latitude and longitude columns');return}
+ const batch=job.rows.map((row,i)=>{const la=num(row[m.lat]),ln=num(row[m.lng]),bad=chk(la,ln);
+  const rec={uid:'r'+Date.now().toString(36)+(S.n++),source:job.name,line:i+2,id:String(row[m.id]??'').trim(),raw:row,latCol:m.lat,lngCol:m.lng,bad,
+   o_lat:bad?null:la,o_lng:bad?null:ln,c_lat:null,c_lng:null,ts:null,hist:[]};
+  const cl=num(row.app_corrected_latitude),cg=num(row.app_corrected_longitude);
+  if(cl!=null&&cg!=null&&!chk(cl,cg)){rec.c_lat=cl;rec.c_lng=cg;rec.ts=row.app_correction_timestamp||new Date().toISOString();rec.hist.push({ts:rec.ts,action:'import',from:null,to:[cl,cg]})}
+  const pr={};[['age','app_age_years'],['dia','app_diameter_cm'],['elev','app_elevation_m']].forEach(([k,c])=>{const v=num(row[c]);if(v!=null)pr[k]=v});if(row.app_profile_notes)pr.notes=row.app_profile_notes;if(Object.keys(pr).length)rec.p=pr;
+  const hs=String(row.app_harvest_summary||'').split(';').map(x=>/^\s*(\d{4}-\d{2}-\d{2}):\s*([\d.]+)\s+(\S+)\s*$/.exec(x)).filter(Boolean);
+  if(hs.length)rec.hv=hs.map((m,k)=>({id:'h'+Date.now().toString(36)+k+(S.n++),date:m[1],qty:+m[2],unit:m[3],notes:''}));
+  Object.keys(row).forEach(k=>{if(APP.includes(k))delete row[k]});return rec});
+ const ok=batch.filter(r=>!r.bad);if(ok.length>2){const med=a=>a.sort((x,y)=>x-y)[a.length>>1],ml=med(ok.map(r=>r.o_lat)),mg=med(ok.map(r=>r.o_lng));
+  ok.forEach(r=>{if(L.latLng(ml,mg).distanceTo([r.o_lat,r.o_lng])>25000)r.warn='More than 25 km from the survey centre. Check hemisphere or coordinate format.'})}
+ const old=S.recs.filter(r=>r.source===job.name);
+ if(old.length){if(!confirm(`"${job.name}" was already imported. Replace it? Photos, profile data, harvests and saved corrections for matching tree IDs are kept.`)){$('#dMap').close();nextImport();return}
+  const om=new Map(old.map(r=>[nid(r.id),r]));batch.forEach(n=>{const o=n.id&&om.get(nid(n.id));if(o){n.uid=o.uid;['p','hv','np','pn','pt','th'].forEach(k=>{if(o[k]!==undefined&&n[k]===undefined)n[k]=o[k]});if(n.c_lat==null&&o.c_lat!=null){n.c_lat=o.c_lat;n.c_lng=o.c_lng;n.ts=o.ts;n.hist=o.hist}}});
+  S.recs=S.recs.filter(r=>r.source!==job.name);S.files=S.files.filter(f=>f.name!==job.name)}
+ S.recs.push(...batch);job.cols.forEach(c=>{if(!S.cols.includes(c)&&!APP.includes(c))S.cols.push(c)});
+ S.files.push({name:job.name,rows:batch.length,valid:ok.length,invalid:batch.length-ok.length,flagged:ok.filter(r=>r.warn).length});
+ $('#dMap').close();rebuild();persist();if(SY.c)syncInit().catch(()=>{});toast(`${job.name}: ${ok.length} plotted, ${batch.length-ok.length} flagged invalid`);nextImport()};
+const dz=$('#drop');dz.ondragover=e=>{e.preventDefault();dz.classList.add('over')};dz.ondragleave=()=>dz.classList.remove('over');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');handleFiles(e.dataTransfer.files)};dz.onkeydown=e=>{if(e.key==='Enter')$('#file').click()};
+$('#file').onchange=e=>{handleFiles(e.target.files);e.target.value=''};
+function renderFiles(){$('#files').replaceChildren(...S.files.map(f=>el('div',{text:`${f.name}: ${f.rows} rows, ${f.valid} valid, ${f.invalid} invalid${f.flagged?`, ${f.flagged} to review`:''}`})))}
+function fillSrc(){const s=$('#fSrc'),v=s.value;s.replaceChildren(el('option',{value:'',text:'All files'}),...S.files.map(f=>el('option',{value:f.name,text:f.name})));s.value=v}
+const PH={};
+async function loadPhotos(u){if(PH[u])return PH[u];let a=null;try{a=await idb('readonly',x=>x.get('ph:'+u))}catch(e){}if(a)return PH[u]=a;const r=S.recs.find(x=>x.uid===u);return PH[u]=r&&r.photo_paths?r.photo_paths.map(p=>p?'sb:'+p:null).filter(Boolean):[]}
+async function photoSrc(r,i,src){if(!src||!src.startsWith('sb:'))return src;if(!SY.c)throw new Error('Sign in to Supabase to view shared photos');const path=src.slice(3),cache=PHOTO_URLS[path];if(cache&&cache.until>Date.now()+30000)return cache.url;const{data,error}=await SY.c.storage.from('survey-photos').createSignedUrl(path,3600);if(error)throw error;PHOTO_URLS[path]={url:data.signedUrl,until:Date.now()+3500000};return data.signedUrl}
+async function inlinePhoto(r,i,src){if(src&&src.startsWith('data:'))return src;const url=await photoSrc(r,i,src),blob=await(await fetch(url)).blob(),bytes=new Uint8Array(await blob.arrayBuffer());let bin='';for(let j=0;j<bytes.length;j+=0x8000)bin+=String.fromCharCode(...bytes.subarray(j,j+0x8000));return`data:${blob.type||'image/jpeg'};base64,${btoa(bin)}`}
+async function savePhotos(r){r.np=PH[r.uid].length;
+ if(SY.c){r.photo_paths=r.photo_paths||[];for(let i=0;i<PH[r.uid].length;i++){const src=PH[r.uid][i];if(!src||!src.startsWith('data:')||r.photo_paths[i])continue;try{const blob=await(await fetch(src)).blob(),path=`${SY.survey}/${slug(r.id||'tree')}/${crypto.randomUUID()}.jpg`,{error:upErr}=await SY.c.storage.from('survey-photos').upload(path,blob,{contentType:'image/jpeg',upsert:false});if(upErr)throw upErr;const{error:dbErr}=await SY.c.from('survey_photos').insert({survey:SY.survey,tree_id:r.id,file_name:(r.pn&&r.pn[i])||`photo-${i+1}.jpg`,photo_time:r.pt&&r.pt[i]||null,storage_path:path,created_by:SY.user});if(dbErr){await SY.c.storage.from('survey-photos').remove([path]);throw dbErr}r.photo_paths[i]=path;PH[r.uid][i]='sb:'+path}catch(e){toast('Photo stayed on this device; Supabase upload failed: '+(e.message||e));break}}}
+ try{await idb('readwrite',x=>x.put(PH[r.uid],'ph:'+r.uid))}catch(e){toast('Could not store the photo in this browser')}persist()}
+function shrink(f){return new Promise((ok,no)=>{const img=new Image(),u=URL.createObjectURL(f);img.onload=()=>{const k=Math.min(1,1024/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);URL.revokeObjectURL(u);ok(c.toDataURL('image/jpeg',.82))};img.onerror=()=>no();img.src=u})}
+async function addPhotos(r,files){const a=await loadPhotos(r.uid);let n=0;
+ for(const f of files){if(!/^image\/(jpeg|png|webp)$/.test(f.type)&&!/\.(jpe?g|png|webp)$/i.test(f.name))continue;
+  try{const t=await exifTime(f);a.push(await shrink(f));const k=a.length-1;(r.pn=r.pn||[])[k]=f.name;(r.pt=r.pt||[])[k]=t;n++}catch(e){toast(f.name+': could not read this image')}}
+ if(n){sortPhotos(r);S.ph=null;await setThumb(r);await savePhotos(r);refreshItem(r);toast(n+' photo'+(n>1?'s':'')+' added')}}
+// <pure-helpers>
+const nid=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^([a-z]*)0+(\d)/,'$1$2');
+const tcol=()=>S.cols.find(c=>/capture.?time|date.?time|timestamp|taken/i.test(c))||S.cols.find(c=>/^(time|date)$/i.test(c));
+const rtime=r=>{const c=tcol();if(!c)return null;const v=Date.parse(r.raw[c]);return isNaN(v)?null:v};
+const fmtT=e=>e&&e.t!=null?new Date(e.t).toLocaleString([],{dateStyle:'medium',timeStyle:'short'}):'Date unknown';
+async function exifTime(f){try{const b=new DataView(await f.slice(0,262144).arrayBuffer());if(b.getUint16(0)!==0xFFD8)return null;let o=2;
+ while(o<b.byteLength-4){const m=b.getUint16(o);if(m===0xFFE1&&b.getUint32(o+4)===0x45786966){const t=o+10,le=b.getUint16(t)===0x4949,g16=x=>b.getUint16(t+x,le),g32=x=>b.getUint32(t+x,le);
+  const rd=(ifd,tag)=>{const n=g16(ifd);for(let i=0;i<n;i++){const e=ifd+2+i*12;if(g16(e)===tag)return e+8}return null};
+  const i0=g32(4),ex=rd(i0,0x8769);let tg=null;if(ex){const ei=g32(ex);tg=rd(ei,0x9003)||rd(ei,0x9004)}if(tg==null)tg=rd(i0,0x0132);if(tg==null)return null;
+  const p=g32(tg);let s='';for(let i=0;i<19;i++)s+=String.fromCharCode(b.getUint8(t+p+i));const q=/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/.exec(s);return q?new Date(+q[1],q[2]-1,+q[3],+q[4],+q[5],+q[6]).getTime():null}
+  if((m&0xFF00)!==0xFF00)break;o+=2+b.getUint16(o+2)}}catch(e){}return null}
+function sortPhotos(r){const a=PH[r.uid];if(!a||a.length<2)return;const pn=r.pn||[],pt=r.pt||[],paths=r.photo_paths||[],k=a.map((_,i)=>[i,pt[i]??rtime(r)??1e18]);k.sort((x,y)=>x[1]-y[1]||x[0]-y[0]);
+ PH[r.uid]=k.map(x=>a[x[0]]);r.pn=k.map(x=>pn[x[0]]||'');r.pt=k.map(x=>pt[x[0]]??null);r.photo_paths=k.map(x=>paths[x[0]]||null)}
+async function photoHist(r){const k=nid(r.id),sib=k?S.recs.filter(x=>x.source===r.source&&nid(x.id)===k):[r],out=[];
+ for(const x of sib){const a=await loadPhotos(x.uid);for(let i=0;i<a.length;i++){const px=x.pt&&x.pt[i]!=null;out.push({src:await photoSrc(x,i,a[i]),own:x,idx:i,name:(x.pn&&x.pn[i])||'',t:px?x.pt[i]:rtime(x),exif:px})}}
+ return out.map((e,i)=>[e,i]).sort((p,q)=>(p[0].t??1e18)-(q[0].t??1e18)||p[1]-q[1]).map(x=>x[0])}
+// </pure-helpers>
+const tiny=src=>new Promise(ok=>{const im=new Image();im.onload=()=>{const c=document.createElement('canvas');c.width=c.height=64;const k=Math.max(64/im.width,64/im.height);c.getContext('2d').drawImage(im,(64-im.width*k)/2,0,im.width*k,im.height*k);ok(c.toDataURL('image/jpeg',.6))};im.onerror=()=>ok(null);im.src=src});
+async function setThumb(r){const a=await loadPhotos(r.uid);if(!a.length){r.th=null;return}const s=await photoSrc(r,a.length-1,a[a.length-1]);r.th=s.startsWith('data:')?await tiny(s):s}
+let HL=[];
+async function drawPhotos(r,box){box.id='phbox';box.replaceChildren(el('p',{className:'hint',text:'Loading photos…'}));const h=await photoHist(r);if(cur()!==r)return;HL=h;if(S.ph==null||S.ph>=HL.length)S.ph=Math.max(0,HL.length-1);paintPhoto()}
+function paintPhoto(){const box=$('#phbox'),r=cur(),n=HL.length,e=HL[S.ph];
+ if(!box||!r)return;
+ if(!n){box.replaceChildren(el('div',{className:'noph',text:'No photo yet'}));return}
+ const fit=S.phFit||(()=>{try{return localStorage.getItem('tm_phfit')}catch(x){}})()||'whole';
+ const img=el('img',{className:'ph'+(fit==='top'?' top':''),alt:`Photo ${S.ph+1} of tree ${r.id||''}`,src:e.src});
+ img.onerror=()=>img.replaceWith(el('div',{className:'noph',text:`Photo file not found: ${e.name||e.src}. Put it in the photos folder next to this page.`}));img.tabIndex=0;img.title='Tap to zoom photo';img.onclick=()=>openPhotoZoom(e.src);img.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();openPhotoZoom(e.src)}};
+ const fb=el('button',{text:fit==='top'?'Show whole picture':'Fill frame from top',onclick:()=>{S.phFit=fit==='top'?'whole':'top';try{localStorage.setItem('tm_phfit',S.phFit)}catch(x){}paintPhoto()}}),
+  rm=el('button',{text:'Remove this photo',onclick:async()=>{if(!confirm('Remove this photo from the shared survey?'))return;const x=e.own,a=await loadPhotos(x.uid),path=x.photo_paths&&x.photo_paths[e.idx];a.splice(e.idx,1);if(x.pn)x.pn.splice(e.idx,1);if(x.pt)x.pt.splice(e.idx,1);if(x.photo_paths)x.photo_paths.splice(e.idx,1);if(path&&SY.c){await SY.c.storage.from('survey-photos').remove([path]);await SY.c.from('survey_photos').delete().eq('survey',SY.survey).eq('storage_path',path);delete PHOTO_URLS[path]}S.ph=null;setThumb(x).then(()=>savePhotos(x)).then(()=>{refreshItem(x);drawPhotos(r,box)})}});
+ const pn=n>1?[el('button',{text:'Previous photo',disabled:S.ph<=0,onclick:()=>{S.ph--;paintPhoto()}}),el('button',{text:'Next photo',disabled:S.ph>=n-1,onclick:()=>{S.ph++;paintPhoto()}})]:[];
+ box.replaceChildren(img,el('div',{className:'hint',text:`${fmtT(e)}${n>1?`, photo ${S.ph+1} of ${n}`:''}, ${e.name||'photo'}${e.exif?' (time from photo EXIF)':e.t!=null?' (time from CSV)':''}`}),el('div',{className:'row',style:'margin-top:4px'},...pn,fb,...(RO?[]:[rm])))}
+let photoZoom=1;function openPhotoZoom(src){const dlg=$('#dPhoto'),im=$('#pzImage');photoZoom=1;im.src=src;im.style.transform='scale(1)';if(!dlg.open)dlg.showModal()}function setPhotoZoom(v){photoZoom=Math.max(1,Math.min(5,v));$('#pzImage').style.transform=`scale(${photoZoom})`}$('#pzPlus').onclick=()=>setPhotoZoom(photoZoom+.5);$('#pzMinus').onclick=()=>setPhotoZoom(photoZoom-.5);$('#pzReset').onclick=()=>setPhotoZoom(1);$('#pzClose').onclick=()=>$('#dPhoto').close();$('#dPhoto').addEventListener('click',e=>{if(e.target===$('#dPhoto'))$('#dPhoto').close()});$('#pzImage').addEventListener('wheel',e=>{e.preventDefault();setPhotoZoom(photoZoom+(e.deltaY<0?.2:-.2))},{passive:false});
+$('#bOld').onclick=()=>{if(window.wbStep)window.wbStep(1)};$('#bNew').onclick=()=>{if(window.wbStep)window.wbStep(-1)};
+function updCounts(){const active=S.recs.filter(r=>!r.hidden),t=active.length,c=active.filter(r=>r.c_lat!=null).length,inv=active.filter(r=>stOf(r)==='invalid').length,u=t-c-inv,h=S.recs.length-t;
+ const e=$('#cnt');if(e)e.textContent=t?`${t} trees: ${c} corrected, ${u} not corrected${inv?`, ${inv} invalid`:''}${h?`, ${h} hidden`:''}`:h?`No visible trees · ${h} hidden`:'No survey loaded';
+ const m=$('#modeNote');if(m)m.textContent=S.mode==='corrected'?(u?`${u} uncorrected tree${u>1?'s':''} shown at measured position`:''):'Showing measured GPS positions'}
+const rawFind=(r,re)=>{for(const k of Object.keys(r.raw))if(re.test(norm(k))){const v=num(r.raw[k]);if(v!=null)return v}return null};
+function eff(r,k){const v=r.p&&r.p[k];if(v!=null)return[v,'entered'];let x;
+ if(k==='elev'){x=rawFind(r,/^(elevation|altitude|elev)\b/);return x==null?[null,'']:[x,'imported']}
+ if(k==='age'){x=rawFind(r,/^age\b/);return x==null?[null,'']:[x,'imported']}
+ x=rawFind(r,/^(diameter|dbh)\b/);if(x!=null)return[x,'imported'];x=rawFind(r,/^circumference\b/);return x==null?[null,'']:[+(x/Math.PI).toFixed(1),'circumference ÷ π, same unit']}
+function profileForm(r){const mk=(k,l,ph)=>el('input',{type:'text',inputMode:'decimal','aria-label':l,placeholder:ph,value:r.p&&r.p[k]!=null?String(r.p[k]):''});
+ const ia=mk('age','Age in years','years'),idm=mk('dia','Diameter in cm','cm'),ie=mk('elev','Elevation in m','m'),nt=el('input',{type:'text','aria-label':'Profile notes',placeholder:'Notes',value:r.p&&r.p.notes||''});
+ const sv=el('button',{className:'p',text:'Save profile',onclick:()=>{const o={};for(const[k,i]of[['age',ia],['dia',idm],['elev',ie]]){const t=i.value.trim();if(t){const v=num(t);if(v==null||(k!=='elev'&&v<0)){toast('Enter a valid number for '+k);return}o[k]=v}}
+  if(nt.value.trim())o.notes=nt.value.trim();r.p=o;persist();renderDetail();toast('Profile saved')}});
+ return el('details',{className:'edit-profile'},el('summary',{text:'Edit age, diameter, elevation'}),el('label',{text:'Age (years)'}),ia,el('label',{text:'Diameter (cm)'}),idm,el('label',{text:'Elevation (m)'}),ie,el('label',{text:'Notes'}),nt,el('p',{},sv))}
+function harvestBlock(r){const h=r.hv||[],w=el('div');
+ if(h.length){const t=el('table'),hd=el('tr');['Date','Amount','Notes',''].forEach(x=>hd.append(el('th',{text:x,style:'width:auto'})));t.append(hd);
+  [...h].sort((x,y)=>y.date.localeCompare(x.date)).forEach(x=>t.append(el('tr',{},el('td',{text:x.date}),el('td',{text:`${x.qty} ${x.unit}`}),el('td',{text:x.notes||''}),el('td',{},el('button',{text:'Remove','aria-label':'Remove harvest on '+x.date,onclick:()=>{if(!confirm('Remove this harvest record?'))return;r.hv=r.hv.filter(y=>y.id!==x.id);persist();renderDetail()}})))));
+  const tot={};h.forEach(x=>tot[x.unit]=(tot[x.unit]||0)+x.qty);
+  w.append(t,el('p',{className:'hint',text:'Total: '+Object.entries(tot).map(([u,q])=>`${+q.toFixed(2)} ${u}`).join(', ')+` over ${h.length} harvest${h.length>1?'s':''}`}))}
+ else w.append(el('p',{className:'hint',text:'No harvests recorded yet.'}));
+ const dt=el('input',{type:'date','aria-label':'Harvest date',value:new Date().toISOString().slice(0,10)}),q=el('input',{type:'text',inputMode:'decimal','aria-label':'Harvest amount',placeholder:'Amount'}),
+  u=el('select',{'aria-label':'Unit'},...['kg','pcs','bunches','sacks'].map(x=>el('option',{text:x}))),n=el('input',{type:'text','aria-label':'Harvest notes',placeholder:'Notes (optional)'});
+ const add=el('button',{className:'p',text:'Add harvest',onclick:()=>{const v=num(q.value);if(!dt.value||v==null||v<=0){toast('Enter a date and an amount above zero');return}
+  (r.hv=r.hv||[]).push({id:'h'+Date.now().toString(36)+(S.n++),date:dt.value,qty:v,unit:u.value,notes:n.value.trim()});persist();renderDetail();toast('Harvest added')}});
+ w.append(el('details',{className:'add-harvest'},el('summary',{text:'Add a harvest'}),dt,q,u,n,el('p',{},add)));return w}
+const sec=(title,...k)=>el('section',{className:'sec'},el('h3',{text:title}),...k);
+// ---------- list ----------
+function itemEl(r){const s=r.hidden?'hidden':stOf(r);const d=el('div',{className:'item'+(r.hidden?' hidden-item':''),role:'option',tabIndex:0},...(r.th?[el('img',{className:'lt',src:r.th,alt:'',loading:'lazy'})]:[]),el('div',{style:'flex:1;min-width:0'},el('b',{text:r.id||'(no ID)'}),el('small',{text:r.hidden?`Hidden · ${r.hidden_reason||'No reason recorded'}`:r.source+(r.np?`, ${r.np} photo${r.np>1?'s':''}`:'')})),el('span',{className:'tag '+s,text:s}));d.dataset.uid=r.uid;d.setAttribute('aria-selected',r.uid===S.sel);d.onclick=()=>select(r.uid,true);d.onkeydown=e=>{if(e.key==='Enter')select(r.uid,true)};return d}
+function renderList(){const q=$('#q').value.toLowerCase(),fs=$('#fSrc').value,ft=$('#fSt').value,showHidden=$('#showHidden').checked,fr=document.createDocumentFragment();S.recs.forEach(r=>{if(r.hidden&&!showHidden)return;if(fs&&r.source!==fs)return;if(!r.hidden&&ft&&stOf(r)!==ft)return;if(q&&!(r.id+' '+r.source+' '+(r.hidden_reason||'')+' '+Object.values(r.raw).join(' ')).toLowerCase().includes(q))return;fr.append(itemEl(r))});$('#list').replaceChildren(fr)}
+['#q','#fSrc','#fSt','#showHidden'].forEach(s=>$(s).addEventListener('input',renderList));$('#showHidden').addEventListener('change',renderList);
+// ---------- selection & details ----------
+function select(uid,zoom){activeSite=null;$('#detail').classList.remove('site-connect');siteOverlays.eachLayer(l=>{if(l instanceof L.Polyline)l.getElement()?.classList.remove('is-active')});const old=cur();if(S.pending&&!confirm('Discard the unsaved position change?'))return;S.pending=null;flagDirty(false);S.sel=uid;if(old)styleRec(old);const r=cur();if(!r)return;styleRec(r);
+ if(markers[uid])markers[uid].bringToFront();const a=posMain(r);if(a&&zoom&&!r.hidden)map.setView(a,isLaptop()?19:Math.max(map.getZoom(),19));
+ document.querySelectorAll('.item').forEach(i=>i.setAttribute('aria-selected',i.dataset.uid===uid));S.ph=null;syncDrag();renderDetail();panel('R',true);{const it=$(`.item[data-uid="${uid}"]`);if(it)it.scrollIntoView({block:'nearest'})}if(innerWidth<=900)$('#detail').scrollIntoView({behavior:'smooth'})}
+function kv(t,k,v){t.append(el('tr',{},el('th',{text:k}),el('td',{text:v==null||v===''?'–':String(v)})))}
+function renderDetail(){const d=$('#detail');d.replaceChildren();const r=cur();
+ if(!r){d.append(el('p',{className:'hint',text:S.recs.length?'Select a tree on the map or in the list.':'Upload a CSV to begin.'}));HL=[];paintPhoto();return}
+ if(r.hidden){d.append(el('div',{className:'row detail-heading'},el('h2',{text:'Tree '+(r.id||'(no ID)')}),...(!RO?[el('button',{className:'p',text:'Restore tree',onclick:()=>restoreTree(r)}),el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})]:[el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})])),el('p',{className:'hint',text:'This tree is hidden from the map and site profiles. Its survey record and photos are retained.'}),sec('Hidden record',el('p',{text:r.hidden_reason||'No reason recorded'}),el('p',{className:'hint',text:`Hidden ${r.hidden_at?new Date(r.hidden_at).toLocaleString():''}${r.hidden_by?' by '+r.hidden_by:''}`})));return}
+ const a=act(r),box=el('div',{className:'photo-viewer'}),addFile=async e=>{await addPhotos(r,e.target.files);e.target.value='';drawPhotos(r,box)},
+  fi=el('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:addFile}),ci=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:true,onchange:addFile}),pm=posMain(r),cs=S.mode==='corrected'&&r.c_lat!=null;
+ d.append(el('div',{className:'row detail-heading'},el('h2',{text:'Tree '+(r.id||'(no ID)'),style:'margin:0'}),...(!RO?[el('button',{text:'Hide tree',className:'danger',onclick:()=>openHideTree(r)}),el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})]:[el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})])),el('div',{className:'hint detail-source',text:r.source+', row '+r.line}));
+ const state=stOf(r),gpsInfo=el('div',{id:'gpsDistance',className:'gps-distance','aria-live':'polite'}),loc=el('div',{className:'location-card'},el('div',{className:'location-status'},el('span',{className:'tag '+state,text:state}),el('span',{className:'hint',text:pm?(cs?'Corrected position':'Measured position'):'No valid GPS position'})),el('strong',{className:'coords',text:pm?`${f7(pm[0])}, ${f7(pm[1])}`:'Check the imported coordinates'}),gpsInfo,...(pm?[el('a',{className:'map-link',href:`https://maps.google.com/?q=${pm[0]},${pm[1]}`,target:'_blank',rel:'noopener',text:'Open in Maps'})]:[]),...((r.bad||r.warn)?[el('span',{className:'hint',text:r.bad||r.warn})]:[]));
+ const lt=el('table');kv(lt,'Status',stOf(r)+(r.bad?': '+r.bad:'')+(r.warn?' ('+r.warn+')':''));kv(lt,'Measured GPS',r.o_lat==null?null:`${f7(r.o_lat)}, ${f7(r.o_lng)}`);
+ if(r.c_lat!=null){kv(lt,'Corrected GPS',`${f7(r.c_lat)}, ${f7(r.c_lng)}`);kv(lt,'Moved from measured',fm(disp(r)));kv(lt,'Corrected at',r.ts);if(r.rb)kv(lt,'Corrected by',r.rb)}
+ const editCta=!RO&&!S.edit?el('button',{className:'p',text:'Edit this location',onclick:()=>$('#bEdit').click()}):null;
+ d.append(sec('Location',loc,...(editCta?[editCta]:[]),el('details',{className:'extra-details'},el('summary',{text:'Location history and GPS'}),lt)));
+ const photoActions=RO?null:el('div',{className:'photo-actions'},el('button',{className:'p',text:'Take photo',onclick:()=>ci.click()}),el('button',{text:'Choose photos',onclick:()=>fi.click()}),ci,fi);
+ d.append(sec('Photos',box,...(photoActions?[photoActions]:[])));drawPhotos(r,box);
+ const t=el('table');[['Age','age','years'],['Diameter','dia','cm'],['Elevation','elev','m']].forEach(([l,k,u])=>{const[v,src]=eff(r,k);kv(t,l,v==null?(k==='dia'?'Not measured':'Not recorded'):`${v} ${u}`+(src&&src!=='entered'?` (${src})`:''))});
+ if(r.p&&r.p.notes)kv(t,'Notes',r.p.notes);
+ const lat=el('input',{type:'text',id:'iLat',disabled:!S.edit,'aria-label':'Latitude',value:a?String(S.pending?S.pending[0]:a[0]):''}),
+  lng=el('input',{type:'text',id:'iLng',disabled:!S.edit,'aria-label':'Longitude',value:a?String(S.pending?S.pending[1]:a[1]):''});
+ [lat,lng].forEach(i=>i.onchange=()=>{const la=num(lat.value),ln=num(lng.value);if(chk(la,ln)){toast('Enter a valid latitude and longitude');return}setPending(la,ln,true);map.panTo([la,ln])});
+ const live=el('p',{id:'live',className:'hint',text:S.edit?'Drag the pink marker onto the trunk, or type coordinates.':'Turn on Edit locations to move this tree.'});
+ const bs=el('button',{className:'p',text:'Save correction',disabled:!S.edit,onclick:saveCorr}),bc=el('button',{text:'Cancel edit',disabled:!S.edit,onclick:()=>{S.pending=null;flagDirty(false);syncDrag();renderDetail()}}),
+  br=el('button',{text:'Reset selected tree',disabled:r.c_lat==null,onclick:()=>resetTree(r)});
+ if(!RO)d.append(el('details',{className:'extra-details edit-details',open:S.edit},el('summary',{text:'Edit location'}),...(S.edit?[]:[el('p',{className:'hint',text:'Turn on Edit locations to move this tree on the map or enter coordinates.'})]),el('label',{text:'Latitude'}),lat,el('label',{text:'Longitude'}),lng,live,el('div',{className:'row position-actions'},bs,bc,br)));
+ d.append(el('details',{className:'extra-details'},el('summary',{text:'Tree profile'}),t,profileForm(r)),el('details',{className:'extra-details'},el('summary',{text:`Harvest history${(r.hv||[]).length?` · ${(r.hv||[]).length}`:''}`} ),harvestBlock(r)));
+ const t2=el('table');Object.entries(r.raw).forEach(([k,v])=>kv(t2,k,v));d.append(el('details',{className:'extra-details'},el('summary',{text:`Imported data · ${Object.keys(r.raw).length} fields`}),t2));if(RO){d.querySelectorAll('.edit-profile,.add-harvest').forEach(x=>x.remove());d.querySelectorAll('.extra-details button,.sec button').forEach(b=>b.remove())}liveDisp();updateGpsDistance()}
+function liveDisp(){const r=cur(),p=$('#live');if(!r||!p||!S.pending)return;const o=r.o_lat!=null?L.latLng(r.o_lat,r.o_lng).distanceTo(S.pending):null;p.textContent='Unsaved position. '+(o==null?'No original GPS point to compare.':`Displacement from original GPS: ${fm(o)}.`)}
+// ---------- editing ----------
+function syncDrag(){if(dragM){map.removeLayer(dragM);dragM=null}const r=cur();if(!S.edit||!r||r.hidden)return;
+ const a=act(r);dragM=L.marker(S.pending||a||map.getCenter(),{draggable:true,zIndexOffset:2000,title:'Drag to the tree trunk',icon:L.divIcon({className:'',html:'<div class="cross"></div>',iconSize:[26,26],iconAnchor:[13,13]})}).addTo(map);
+ dragM.on('drag dragend',e=>{const p=e.target.getLatLng();setPending(p.lat,p.lng,false)})}
+function setPending(la,ln,mv){S.pending=[la,ln];flagDirty(true);setStat('Unsaved position change');$('#iLat').value=la.toFixed(7);$('#iLng').value=ln.toFixed(7);if(mv&&dragM)dragM.setLatLng([la,ln]);liveDisp()}
+const snap=r=>({uid:r.uid,c_lat:r.c_lat,c_lng:r.c_lng,ts:r.ts});
+function afterChange(r){drawSites();if(SY.user)r.rb=SY.user;syncPush(r);ensure(r);drawTrace();updCounts();refreshItem(r);renderDetail();$('#bUndo').disabled=!S.undo.length;persist()}
+function saveCorr(){const r=cur();if(!r)return;const la=num($('#iLat').value),ln=num($('#iLng').value);if(chk(la,ln)){toast('Enter a valid latitude and longitude first');return}
+ S.undo.push([snap(r)]);const a=act(r);r.hist.push({ts:new Date().toISOString(),action:'save',from:a,to:[la,ln]});
+ r.c_lat=la;r.c_lng=ln;r.ts=new Date().toISOString();S.pending=null;syncDrag();afterChange(r);toast(`Correction saved for ${r.id||'tree'}`)}
+function resetTree(r){S.undo.push([snap(r)]);r.hist.push({ts:new Date().toISOString(),action:'reset',from:act(r),to:r.o_lat==null?null:[r.o_lat,r.o_lng]});r.c_lat=r.c_lng=r.ts=null;S.pending=null;syncDrag();afterChange(r);toast('Correction removed')}
+function undo(){const e=S.undo.pop();if(!e)return;e.forEach(s=>{const r=S.recs.find(x=>x.uid===s.uid);if(!r)return;r.hist.push({ts:new Date().toISOString(),action:'undo',from:act(r),to:null});r.c_lat=s.c_lat;r.c_lng=s.c_lng;r.ts=s.ts;syncPush(r);ensure(r);refreshItem(r)});drawSites();drawTrace();updCounts();S.pending=null;syncDrag();renderDetail();$('#bUndo').disabled=!S.undo.length;persist();toast('Last correction undone')}
+$('#bUndo').onclick=undo;
+$('#bEdit').onclick=e=>{S.edit=!S.edit;e.target.setAttribute('aria-pressed',S.edit);if(S.edit)setMode('corrected');$('#tgMode').disabled=S.edit;e.target.textContent=S.edit?'Editing: on':'Edit locations';if(!S.edit){S.pending=null;flagDirty(false)}syncDrag();renderDetail();if(S.edit&&!S.sel)toast('Select a tree, then drag its pink marker')};
+$('#bSave').onclick=()=>{if(S.pending)toast('Click Save correction to confirm the pending move');persist().then(()=>toast('Survey saved in this browser'))};
+// ---------- export ----------
+function dl(name,text,type='text/csv'){const a=el('a',{href:URL.createObjectURL(new Blob(['\ufeff'+text],{type})),download:name});document.body.append(a);a.click();a.remove()}
+const APP=['app_source_file','app_record_id','app_original_latitude','app_original_longitude','app_corrected_latitude','app_corrected_longitude','app_active_latitude','app_active_longitude','app_correction_status','app_correction_timestamp','app_displacement_m','app_import_problem','app_age_years','app_diameter_cm','app_elevation_m','app_profile_notes','app_photo_count','app_harvest_count','app_harvest_summary'];
+function full(r){const a=act(r),d=disp(r);return{...r.raw,app_source_file:r.source,app_record_id:r.uid,app_original_latitude:r.o_lat??'',app_original_longitude:r.o_lng??'',app_corrected_latitude:r.c_lat??'',app_corrected_longitude:r.c_lng??'',app_active_latitude:a?a[0]:'',app_active_longitude:a?a[1]:'',app_correction_status:stOf(r),app_correction_timestamp:r.ts||'',app_displacement_m:d==null?'':d.toFixed(3),app_import_problem:r.bad||r.warn||'',app_age_years:eff(r,'age')[0]??'',app_diameter_cm:eff(r,'dia')[1].startsWith('circ')?'':eff(r,'dia')[0]??'',app_elevation_m:eff(r,'elev')[0]??'',app_profile_notes:r.p&&r.p.notes||'',app_photo_count:r.np||0,app_hidden:r.hidden===true,app_hidden_reason:r.hidden_reason||'',app_hidden_at:r.hidden_at||'',app_hidden_by:r.hidden_by||'',app_harvest_count:(r.hv||[]).length,app_harvest_summary:(r.hv||[]).map(x=>`${x.date}: ${x.qty} ${x.unit}`).join('; ')}}
+const xe=v=>String(v??'').replace(/[<>&"']/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&apos;'}[c]));
+function kml(){const pm=(r,p,l)=>`<Placemark><name>${xe(r.id||'(no ID)')}</name><description>${xe(l+', '+r.source)}</description><Point><coordinates>${p[1]},${p[0]},0</coordinates></Point></Placemark>`;
+ const a=S.recs.filter(act).map(r=>pm(r,act(r),stOf(r)+' position')).join(''),m=S.recs.filter(r=>r.c_lat!=null&&r.o_lat!=null).map(r=>pm(r,[r.o_lat,r.o_lng],'measured GPS')).join('');
+ return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Tree survey</name><Folder><name>Active positions</name>${a}</Folder><Folder><name>Measured GPS (corrected trees)</name>${m}</Folder></Document></kml>`}
+const EX=[['Corrected CSV (all columns, original + corrected + active)',()=>dl('trees_corrected.csv',Papa.unparse({fields:[...S.cols,...APP],data:S.recs.map(full)}))],
+['Active coordinates CSV (reflects saved corrections)',()=>dl('trees_active_coordinates.csv',Papa.unparse(S.recs.filter(act).map(r=>{const a=act(r);return{source_file:r.source,tree_id:r.id,latitude:a[0],longitude:a[1],status:stOf(r)}})))],
+['Correction report (corrected trees only)',()=>dl('trees_correction_report.csv',Papa.unparse(S.recs.filter(r=>r.c_lat!=null).map(r=>({source_file:r.source,tree_id:r.id,original_latitude:r.o_lat??'',original_longitude:r.o_lng??'',corrected_latitude:r.c_lat,corrected_longitude:r.c_lng,displacement_m:disp(r)==null?'':disp(r).toFixed(3),timestamp:r.ts}))))],
+['Flagged rows (invalid or to review)',()=>dl('trees_flagged_rows.csv',Papa.unparse({fields:[...S.cols,...APP],data:S.recs.filter(r=>r.bad||r.warn).map(full)}))],
+['Harvest log (one row per harvest)',()=>{const rows=S.recs.flatMap(r=>(r.hv||[]).map(x=>({source_file:r.source,tree_id:r.id,record_id:r.uid,date:x.date,amount:x.qty,unit:x.unit,notes:x.notes})));if(!rows.length)return toast('No harvests recorded yet');dl('trees_harvest_log.csv',Papa.unparse(rows))}],
+['Website folder: index.html plus resized photos folder (Chrome or Edge)',buildSiteFolder],
+['Shareable website (one HTML file with survey, photos and corrections, read-only)',buildShare],
+['KML for Google Earth Pro (active and measured positions)',()=>dl('trees.kml',kml(),'application/vnd.google-earth.kml+xml')],
+['Full backup (JSON with photos, can be re-imported here)',async()=>{const photos={};for(const r of S.recs)if(r.np){const a=await loadPhotos(r.uid);photos[r.uid]=await Promise.all(a.map((src,i)=>inlinePhoto(r,i,src)))}dl('tree_survey_backup.json',JSON.stringify({recs:S.recs,cols:S.cols,files:S.files,photos}),'application/json')}]];
+$('#expBtns').replaceChildren(...EX.map(([t,f])=>el('button',{text:t,onclick:()=>{if(!S.recs.length){toast('Nothing to export yet');return}f()}})));
+$('#bExp').onclick=()=>$('#dExp').showModal();$('#xClose').onclick=()=>$('#dExp').close();
+$('#bTpl').onclick=()=>dl('tree_template.csv','Tree ID,Estimated Latitude,Estimated Longitude,Calculated Latitude,Calculated Longitude,Elevation,Circumference,Bearing A,Bearing B,Bearing C,Remarks\n1,15.486100,120.972400,15.486120,120.972430,52.1,98,45,130,250,Example row\n2,15.486200,120.972600,15.486210,120.972640,52.4,110,50,120,240,\n');
+function openAddTree(){if(RO)return;$('#newTreeId').value='';$('#newTreeAge').value='';$('#newTreeDia').value='';if(gpsPoint){$('#newTreeLat').value=gpsPoint.lat.toFixed(7);$('#newTreeLng').value=gpsPoint.lng.toFixed(7)}else{$('#newTreeLat').value='';$('#newTreeLng').value=''}$('#dTree').showModal();$('#newTreeId').focus()}
+$('#bAddTree').onclick=openAddTree;$('#bTreeCancel').onclick=()=>$('#dTree').close();$('#bUseGps').onclick=()=>{if(!gpsPoint){toast('Start GPS tracking first, then tap Use my GPS');return}$('#newTreeLat').value=gpsPoint.lat.toFixed(7);$('#newTreeLng').value=gpsPoint.lng.toFixed(7)};
+$('#bTreeSave').onclick=()=>{const id=$('#newTreeId').value.trim(),la=num($('#newTreeLat').value),ln=num($('#newTreeLng').value),ageText=$('#newTreeAge').value.trim(),diaText=$('#newTreeDia').value.trim(),age=ageText?num(ageText):null,dia=diaText?num(diaText):null;if(!id){toast('Enter a tree ID');$('#newTreeId').focus();return}if(S.recs.some(x=>nid(x.id)===nid(id))){toast('That tree ID already exists');$('#newTreeId').focus();return}const bad=chk(la,ln);if(bad){toast('Enter valid coordinates: '+bad);return}if(ageText&&(age==null||age<0)){toast('Enter a valid age in years');return}if(diaText&&(dia==null||dia<0)){toast('Enter a valid diameter in centimetres');return}const p={};if(age!=null)p.age=age;if(dia!=null)p.dia=dia;const r={uid:'manual-'+crypto.randomUUID(),source:'Manual entry',line:'',id,raw:{},latCol:'Latitude',lngCol:'Longitude',bad:'',warn:'',o_lat:la,o_lng:ln,c_lat:null,c_lng:null,ts:null,hist:[],p,hv:[],np:0,pn:[],pt:[],photo_paths:[]};S.recs.push(r);S.sel=r.uid;$('#dTree').close();rebuild();persist();panel('R',true);map.setView([la,ln],isLaptop()?19:Math.max(map.getZoom(),18));toast('Tree '+id+' added'+(SY.c?' and queued for team sync':''))};
+let hideTarget=null;function openHideTree(r){if(RO)return;hideTarget=r;$('#hideReason').value='';$('#dHide').showModal();$('#hideReason').focus()}$('#bHideCancel').onclick=()=>{hideTarget=null;$('#dHide').close()};$('#bHideConfirm').onclick=()=>{const r=hideTarget,reason=$('#hideReason').value.trim();if(!r)return;if(!reason){toast('Enter a reason before hiding this tree');$('#hideReason').focus();return}r.hidden=true;r.hidden_reason=reason;r.hidden_at=new Date().toISOString();r.hidden_by=SY.user||loadCfg().email||'local user';if(S.sel===r.uid)S.sel=null;S.pending=null;flagDirty(false);hideTarget=null;$('#dHide').close();rebuild();persist();if(SY.c)scheduleSurveySave();panel('R',false);toast('Tree '+r.id+' hidden; its record and photos were kept')};
+function restoreTree(r){if(RO)return;r.hidden=false;r.restored_at=new Date().toISOString();r.restored_by=SY.user||loadCfg().email||'local user';S.sel=r.uid;rebuild();persist();if(SY.c)scheduleSurveySave();panel('R',true);toast('Tree '+r.id+' restored to the map')}
+
+$('#bClear').onclick=()=>{if(!S.recs.length||!confirm('Clear the whole survey, including saved corrections? Export a backup first if you need one.'))return;const ids=S.recs.map(r=>r.uid);S.recs=[];S.cols=[];S.files=[];S.sel=null;S.pending=null;S.undo=[];idb('readwrite',x=>{ids.forEach(u=>x.delete('ph:'+u));x.delete('survey')}).catch(()=>{});Object.keys(PH).forEach(k=>delete PH[k]);rebuild();setStat('No survey loaded');$('#bUndo').disabled=true};
+window.addEventListener('beforeunload',e=>{if(S.pending){e.preventDefault();e.returnValue=''}});
+// ---------- panels & mode switch ----------
+function panel(side,show){const m=$('main'),phoneLayout=innerWidth<=760||matchMedia('(orientation:landscape) and (max-height:600px)').matches;if(phoneLayout){const selected=side;m.classList.toggle('noL',selected==='R');m.classList.toggle('noR',selected==='L');$('#bL').setAttribute('aria-pressed',selected==='L');$('#bR').setAttribute('aria-pressed',selected==='R')}else{m.classList.toggle(side==='L'?'noL':'noR',!show);$('#b'+side).setAttribute('aria-pressed',show)}setTimeout(()=>map.invalidateSize(),100)}
+function closeDetail(){if(S.pending&&!confirm('Discard the unsaved position change?'))return;S.pending=null;flagDirty(false);const o=cur();S.sel=null;if(o)styleRec(o);
+ document.querySelectorAll('.item').forEach(i=>i.setAttribute('aria-selected',false));syncDrag();renderDetail();panel('R',false);HL=[];paintPhoto()}
+$('#bL').onclick=()=>panel('L',$('main').classList.contains('noL'));$('#bR').onclick=()=>panel('R',$('main').classList.contains('noR'));
+$('#tgMode').onchange=e=>setMode(e.target.checked?'corrected':'measured');
+const lbl=()=>$('#map').classList.toggle('nolbl',map.getZoom()<19);map.on('zoomend',lbl);lbl();
+// ---------- photos from folder & shareable file ----------
+async function addFolderPhotos(files){
+ const imgs=[...files].filter(f=>/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name));
+ if(!imgs.length){toast('No image files found in that folder');return}
+ const stem=n=>String(n).trim().replace(/^.*[\\/]/,'').toLowerCase().replace(/\.[a-z0-9]+$/,''),names=new Set(imgs.map(f=>stem(f.name)));
+ let pc=null,best=0;for(const c of S.cols){let n=0;for(const r of S.recs)if(String(r.raw[c]??'').split(/[;|]/).some(v=>names.has(stem(v))))n++;if(n>best){best=n;pc=c}}
+ const byFile=new Map(),byId=new Map(),add=(m,k,r)=>{if(!k)return;if(!m.has(k))m.set(k,[]);m.get(k).push(r)};
+ S.recs.forEach(r=>{add(byId,nid(r.id),r);if(pc)String(r.raw[pc]??'').split(/[;|]/).forEach(v=>add(byFile,stem(v),r))});
+ const hit=new Map(),un=[];let amb=0,bad=0,i=0,dup=0;
+ for(const f of imgs){if(++i%8===0)toast(`Adding photos ${i}/${imgs.length}…`);const st=stem(f.name);let t=byFile.get(st)||byId.get(nid(st));
+  if(!t)for(const tk of st.match(/[a-z]+\d+/g)||[]){t=byId.get(nid(tk));if(t)break}
+  if(!t||!t.length){un.push(f.name);continue}if(t.length>1){amb++;continue}
+  const r=t[0];if(r.pn&&r.pn.includes(f.name)){dup++;continue}
+  try{const a=await loadPhotos(r.uid),t=await exifTime(f);a.push(await shrink(f));(r.pn=r.pn||[])[a.length-1]=f.name;(r.pt=r.pt||[])[a.length-1]=t;hit.set(r,(hit.get(r)||0)+1)}catch(e){bad++}}
+ for(const[r]of hit){sortPhotos(r);await setThumb(r);r.np=PH[r.uid].length;await savePhotos(r)}
+ await persist();renderList();if(cur())renderDetail();const n=[...hit.values()].reduce((a,b)=>a+b,0);
+ toast(n?`${n} photo${n===1?'':'s'} added to ${hit.size} tree${hit.size===1?'':'s'}`+(pc?` (matched by column "${pc}")`:'')+'.'+(un.length?` ${un.length} unmatched (${un.slice(0,3).join(', ')}${un.length>3?'…':''}).`:'')+(amb?` ${amb} matched several trees and were skipped.`:'')+(dup?` ${dup} already attached (same file name).`:'')+(bad?` ${bad} could not be read.`:'')
+  :`No photo was matched. Example file: ${imgs[0].name}. Example tree ID: ${S.recs[0]?S.recs[0].id:'none'}. Name files like J1.jpg, or list the file names in a CSV column.`+(bad?` ${bad} could not be read.`:''))}
+async function walkDir(h,out){for await(const[n,x]of h.entries()){if(x.kind==='file'){if(/\.(jpe?g|png|webp)$/i.test(n))out.push(await x.getFile())}else await walkDir(x,out)}}
+$('#bPh').onclick=async()=>{if(!S.recs.length){toast('Import the survey CSV first');return}
+ if(window.showDirectoryPicker){try{const d=await showDirectoryPicker(),out=[];toast('Reading folder…');await walkDir(d,out);addFolderPhotos(out)}catch(e){if(e.name!=='AbortError')toast('Could not read the folder: '+e.message)}return}
+ $('#phDir').click()};
+$('#bPhF').onclick=()=>{if(!S.recs.length){toast('Import the survey CSV first');return}$('#phFiles').click()};
+$('#phFiles').onchange=e=>{addFolderPhotos(e.target.files);e.target.value=''};
+$('#phDir').onchange=e=>{addFolderPhotos(e.target.files);e.target.value=''};
+const shareHtml=photos=>{const data=JSON.stringify({recs:S.recs,cols:S.cols,files:S.files,photos,mode:S.mode,at:new Date().toISOString()}).replace(/</g,'\\u003c');
+ const tag='<script id="shared-data">window.SHARED_DATA='+data+';<'+'/script>';
+ return SRC_HTML.replace(/<script id="shared-data">[\s\S]*?<\/script>/,'').replace(/const GOOGLE_KEY='[^']*';/,"const GOOGLE_KEY='';").replace('</head>',()=>tag+'</head>')};
+async function buildShare(){
+ if(!confirm('This creates one HTML file containing your whole survey, corrections, harvest records and photos. Anyone who has the file can read all of it. Continue?'))return;
+ toast('Building shareable file…');const photos={};for(const r of S.recs)if(r.np){const a=await loadPhotos(r.uid);photos[r.uid]=await Promise.all(a.map((src,i)=>inlinePhoto(r,i,src)))}
+ const html=shareHtml(photos);if(html.length>40e6&&!confirm(`The file will be about ${(html.length/1048576).toFixed(0)} MB. Continue?`))return;
+ dl('tree_survey_shared.html',html,'text/html');toast(`Shared file saved (${(html.length/1048576).toFixed(1)} MB)`)}
+async function buildSiteFolder(){
+ if(!window.showDirectoryPicker){toast('Saving a folder needs Chrome or Edge on a computer. Use "Shareable website" instead.');return}
+ if(!confirm('Choose an empty folder. The app saves index.html and a photos folder (resized photos) there. Anyone who has the folder can read all of it. Continue?'))return;
+ let dir;try{dir=await showDirectoryPicker({mode:'readwrite'})}catch(e){return}
+ toast('Saving website folder…');const pd=await dir.getDirectoryHandle('photos',{create:true}),photos={},used=new Set();let n=0;
+ const put=async(h,name,data)=>{const w=await(await h.getFileHandle(name,{create:true})).createWritable();await w.write(data);await w.close()};
+ try{for(const r of S.recs){if(!r.np)continue;const a=await loadPhotos(r.uid);photos[r.uid]=[];
+  for(let i=0;i<a.length;i++){if(a[i].startsWith('sb:'))a[i]=await inlinePhoto(r,i,a[i]);if(!a[i].startsWith('data:')){photos[r.uid].push(a[i]);continue}let nm=`${String(r.id||'tree').replace(/[^\w\-]+/g,'_')}_${i+1}`;if(used.has(nm))nm+='_'+r.uid.slice(-5);used.add(nm);nm+='.jpg';
+   await put(pd,nm,await(await fetch(a[i])).blob());photos[r.uid].push('photos/'+nm);n++}}
+  await put(dir,'index.html',shareHtml(photos));toast(`Website folder saved: index.html and ${n} photos. Open index.html to check it.`)}catch(e){toast('Could not save the folder: '+(e.message||'unknown error'))}}
+// ---------- map image export ----------
+const loadCors=src=>new Promise(ok=>{const im=new Image();im.crossOrigin='anonymous';im.onload=()=>ok(im);im.onerror=()=>ok(null);im.src=src});
+async function exportImage(){
+ if(googleL&&map.hasLayer(googleL)){toast("Google imagery can't be saved as an image under Google's terms. Switch to Esri or a historical layer first.");return}
+ const k=+$('#oSz').value,sz=map.getSize(),W=sz.x*k,H=sz.y*k,cv=document.createElement('canvas');cv.width=W;cv.height=H;const c=cv.getContext('2d');c.fillStyle='#111';c.fillRect(0,0,W,H);
+ const mr=$('#map').getBoundingClientRect(),zi=l=>+getComputedStyle(map.getPane(l.options.pane||'tilePane')).zIndex||200,layers=[],miss=[];
+ map.eachLayer(l=>{if(l instanceof L.GridLayer&&l._tiles)layers.push(l)});layers.sort((a,b)=>zi(a)-zi(b));toast('Preparing image…');
+ for(const l of layers){const ts=Object.values(l._tiles).filter(t=>t.current&&t.el&&t.el.src),ts0=l.getTileSize().x;let ok=0;
+  await Promise.all(ts.map(async t=>{const im=await loadCors(t.el.src);if(!im)return;ok++;const z=t.coords.z,tz=ts0*map.getZoomScale(map.getZoom(),z),nw=map.latLngToContainerPoint(map.unproject(t.coords.scaleBy(l.getTileSize()),z));
+   c.globalAlpha=l.options.opacity??1;c.drawImage(im,nw.x*k,nw.y*k,tz*k+1,tz*k+1);c.globalAlpha=1}));
+  if(ts.length&&!ok)miss.push(l.options.label||l.getAttribution()||'a layer')}
+ const place=e=>{const r=e.getBoundingClientRect();return[(r.left-mr.left)*k,(r.top-mr.top)*k,r.width*k,r.height*k]};
+ if(svgR._container&&map.hasLayer(traceL)){const[x,y,w,h]=place(svgR._container),im=await new Promise(ok=>{const i=new Image();i.onload=()=>ok(i);i.onerror=()=>ok(null);i.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svgR._container))});if(im)c.drawImage(im,x,y,w,h)}
+ if(rnd._container){const[x,y,w,h]=place(rnd._container);c.drawImage(rnd._container,x,y,w,h)}
+ const rr=(x,y,w,h,r)=>{c.beginPath();c.roundRect?c.roundRect(x,y,w,h,r):c.rect(x,y,w,h)};
+ const pill=(t,x,y,bg,fg)=>{c.font=`700 ${11*k}px system-ui,sans-serif`;const w=c.measureText(t).width+10*k,h=17*k;c.fillStyle=bg;rr(x,y,w,h,h/2);c.fill();c.fillStyle=fg;c.textBaseline='middle';c.fillText(t,x+5*k,y+h/2)};
+ document.querySelectorAll('#map .ts').forEach(e=>{const[x,y,w]=place(e);if(w)pill(e.textContent,x,y,'#fff',e.style.color||'#1b4fd8')});
+ if($('#oLbl').checked)document.querySelectorAll('#map .tl').forEach(e=>{const[x,y,w]=place(e);if(w)pill(e.textContent,x,y,'#0b1d14','#fff')});
+ if($('#oLeg').checked){const it=S.mode==='corrected'?[{d:'#28c8ff',t:'Tree, original GPS (not corrected)'},{d:'#b6ff3b',t:'Tree, corrected position'}]:[{d:'#28c8ff',t:'Tree, measured GPS position'}];
+  if(map.hasLayer(traceL))lastRows.filter(r=>!hiddenW.has(r.k)).forEach(r=>it.push({l:r.col,t:`Walk ${r.nm}: ${r.n} trees, ${Math.round(r.len)} m`}));
+  c.font=`${12*k}px system-ui,sans-serif`;const lh=18*k,w=Math.max(...it.map(i=>c.measureText(i.t).width))+48*k,h=it.length*lh+12*k,x0=12*k,y0=12*k;c.fillStyle='rgba(255,255,255,.93)';rr(x0,y0,w,h,6*k);c.fill();
+  it.forEach((i,n)=>{const yy=y0+6*k+n*lh+lh/2;if(i.d){c.fillStyle=i.d;c.strokeStyle='#0b1d14';c.lineWidth=1.5*k;c.beginPath();c.arc(x0+16*k,yy,5*k,0,7);c.fill();c.stroke()}
+   else{c.strokeStyle=i.l;c.lineWidth=4*k;c.lineCap='round';c.setLineDash([0,9*k]);c.beginPath();c.moveTo(x0+6*k,yy);c.lineTo(x0+26*k,yy);c.stroke();c.setLineDash([])}
+   c.fillStyle='#17261f';c.textBaseline='middle';c.fillText(i.t,x0+36*k,yy)})}
+ if($('#oCap').checked){const cen=map.getCenter(),bases=layers.filter(l=>l!==wbL&&l!==labels).map(l=>l===esri?'Esri World Imagery':l===clarity?'Esri Clarity':l===osm?'OpenStreetMap':'Custom tiles'),
+   ln=[`Tree survey: ${S.mode==='corrected'?'corrected':'measured GPS'} positions`,'Imagery: '+(bases.join(' + ')||'none')+(wbL&&map.hasLayer(wbL)?'; historical overlay '+wbL.options.attribution.replace('Esri World Imagery Wayback ','Esri Wayback '):''),`Exported ${new Date().toISOString().slice(0,10)}, zoom ${map.getZoom()}, centre ${cen.lat.toFixed(5)}, ${cen.lng.toFixed(5)}`];
+  c.font=`${12*k}px system-ui,sans-serif`;const lh=16*k,w=Math.max(...ln.map(t=>c.measureText(t).width))+16*k,h=ln.length*lh+10*k,y0=H-34*k-h;c.fillStyle='rgba(255,255,255,.93)';rr(12*k,y0,w,h,6*k);c.fill();c.fillStyle='#17261f';c.textBaseline='middle';ln.forEach((t,i)=>c.fillText(t,20*k,y0+5*k+i*lh+lh/2));
+  const yy=sz.y/2,m100=map.containerPointToLatLng([0,yy]).distanceTo(map.containerPointToLatLng([100,yy])),pw=10**Math.floor(Math.log10(m100)),nice=[5,2,1].map(f=>f*pw).find(v=>v<=m100)||pw,px=100*nice/m100*k;
+  c.fillStyle='rgba(255,255,255,.93)';rr(12*k,H-30*k,px+24*k+c.measureText('000 km').width,22*k,4*k);c.fill();c.strokeStyle='#17261f';c.lineWidth=2*k;c.lineCap='butt';c.beginPath();c.moveTo(20*k,H-24*k);c.lineTo(20*k,H-14*k);c.lineTo(20*k+px,H-14*k);c.lineTo(20*k+px,H-24*k);c.stroke();c.fillStyle='#17261f';c.fillText(nice>=1000?nice/1000+' km':nice+' m',28*k+px,H-19*k);
+  let at=[...new Set(layers.map(l=>l.getAttribution&&l.getAttribution()).filter(Boolean))].join(' | ')+' | Leaflet',fs=11;do{c.font=`${fs*k}px system-ui,sans-serif`;fs--}while(c.measureText(at).width>W-24*k&&fs>6);
+  const aw=c.measureText(at).width+10*k;c.fillStyle='rgba(255,255,255,.85)';c.fillRect(W-aw,H-16*k,aw,16*k);c.fillStyle='#17261f';c.textBaseline='middle';c.fillText(at,W-aw+5*k,H-8*k)}
+ try{cv.toBlob(b=>{if(!b){toast('Could not create the image');return}const a=el('a',{href:URL.createObjectURL(b),download:`tree_map_${new Date().toISOString().slice(0,10)}.png`});document.body.append(a);a.click();a.remove();
+  toast(miss.length?`Saved, but ${miss.join(', ')} could not be read (the provider blocks image export), so it is missing.`:'Map image saved')},'image/png')}catch(e){toast('The browser blocked saving this image (a layer does not allow export).')}}
+$('#bImg').onclick=async()=>{$('#dExp').close();try{await exportImage()}catch(e){toast('Image export failed: '+(e.message||'unknown error'))}};
+// ---------- team sync (Supabase) ----------
+const SY={c:null,ch:null,user:'',survey:'',state:'off'},SYQ=(()=>{try{return JSON.parse(localStorage.getItem('tm_syncq')||'{}')}catch(e){return{}}})(),PHOTO_URLS={};
+let surveySaveTimer=0,SUPPRESS_REMOTE=false,LAST_SURVEY_STAMP='';
+const slug=x=>String(x||'').toLowerCase().replace(/\.[a-z0-9]+$/,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const loadCfg=()=>{try{return JSON.parse(localStorage.getItem('tm_sync')||'{}')}catch(e){return{}}},saveCfg=c=>{try{localStorage.setItem('tm_sync',JSON.stringify({url:c.url,key:c.key,survey:c.survey,email:c.email}))}catch(e){}},qsave=()=>{try{localStorage.setItem('tm_syncq',JSON.stringify(SYQ))}catch(e){}};
+SY.survey=loadCfg().survey||'';
+function syncStatus(st){SY.state=st;const n=Object.keys(SYQ).length,b=$('#bSync');if(!b)return;b.textContent=({off:'Team sync',connecting:'Team sync: connecting…',live:'Team sync: live'+(n?` (${n} queued)`:''),offline:`Team sync: offline (${n} queued)`,signin:'Team sync: sign in',error:'Team sync: error'})[st]||'Team sync';b.setAttribute('aria-pressed',st==='live')}
+const loadSb=()=>window.supabase?Promise.resolve():new Promise((ok,no)=>{const x=document.createElement('script');x.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';x.onload=ok;x.onerror=()=>no(new Error('Could not load the Supabase library. Check your internet connection.'));document.head.append(x)});
+function syncPush(r){if(!SY.survey||!r.id)return;SYQ[SY.survey+'\u0001'+r.id]={survey:SY.survey,tree_id:r.id,c_lat:r.c_lat,c_lng:r.c_lng,updated_by:SY.user||loadCfg().email||'',updated_at:new Date().toISOString()};qsave();syncStatus(SY.state);flush()}
+function scheduleSurveySave(){if(SUPPRESS_REMOTE||!SY.c||!SY.survey)return;clearTimeout(surveySaveTimer);surveySaveTimer=setTimeout(pushSurvey,900)}
+async function pushSurvey(){if(!SY.c||!SY.survey)return;const stamp=new Date().toISOString(),payload={recs:S.recs.map(r=>({...r,th:null})),cols:S.cols,files:S.files};const{error}=await SY.c.from('survey_data').upsert({survey:SY.survey,payload,updated_by:SY.user,updated_at:stamp},{onConflict:'survey'});if(error)toast('Could not save survey data to Supabase: '+error.message);else LAST_SURVEY_STAMP=stamp}
+async function pullSurvey(){const{data,error}=await SY.c.from('survey_data').select('*').eq('survey',SY.survey).maybeSingle();if(error)throw error;
+ if(data&&data.payload&&Array.isArray(data.payload.recs)){if(S.recs.length){if(confirm('A shared survey already exists. Choose OK to load it and replace the survey on this device; choose Cancel to keep this device’s survey and upload it to the shared workspace.')){SUPPRESS_REMOTE=true;S.recs=data.payload.recs;S.cols=data.payload.cols||[];S.files=data.payload.files||[];await idb('readwrite',x=>x.put({recs:S.recs,cols:S.cols,files:S.files},'survey'));rebuild();SUPPRESS_REMOTE=false}else await pushSurvey()}else{SUPPRESS_REMOTE=true;S.recs=data.payload.recs;S.cols=data.payload.cols||[];S.files=data.payload.files||[];await idb('readwrite',x=>x.put({recs:S.recs,cols:S.cols,files:S.files},'survey'));rebuild();SUPPRESS_REMOTE=false}}
+ else if(S.recs.length)await pushSurvey()}
+let flushing=false;
+async function flush(){if(flushing||!SY.c)return;const ks=Object.keys(SYQ);if(!ks.length)return;flushing=true;
+ try{const{error}=await SY.c.from('corrections').upsert(ks.map(k=>SYQ[k]),{onConflict:'survey,tree_id'});if(error)throw error;ks.forEach(k=>delete SYQ[k]);qsave();syncStatus('live')}catch(e){syncStatus('offline')}flushing=false}
+addEventListener('online',()=>{if(SY.c)flush()});
+function applyRow(d){const r=S.recs.find(x=>x.id===d.tree_id);if(!r)return;
+ const same=(d.c_lat==null&&r.c_lat==null)||(d.c_lat!=null&&r.c_lat!=null&&Math.abs(d.c_lat-r.c_lat)<1e-9&&Math.abs(d.c_lng-r.c_lng)<1e-9);if(same)return;
+ const from=act(r);if(d.c_lat==null){r.c_lat=r.c_lng=null;r.ts=null;r.rb=null}else{r.c_lat=d.c_lat;r.c_lng=d.c_lng;r.ts=d.updated_at;r.rb=d.updated_by||''}
+ r.hist.push({ts:d.updated_at,action:'remote',from,to:act(r),by:d.updated_by});ensure(r);refreshItem(r);drawTrace();updCounts();persist();
+ if(r.uid===S.sel){if(S.pending)toast(`${d.updated_by||'A teammate'} changed ${r.id} while you have an unsaved move. Your unsaved move is still there.`);else{syncDrag();renderDetail()}}
+ else toast(`${d.updated_by||'A teammate'} updated ${r.id}`)}
+async function syncInit(){for(let i=0;i<40&&!S.recs.length;i++)await new Promise(x=>setTimeout(x,200));
+ await pullSurvey();
+ const{data,error}=await SY.c.from('corrections').select('*').eq('survey',SY.survey);if(error)throw error;
+ const remote=new Map(data.map(d=>[d.tree_id,d])),up=[];let pulled=0;
+ for(const r of S.recs){if(!r.id)continue;const d=remote.get(r.id);
+  if(d){const same=(d.c_lat==null&&r.c_lat==null)||(d.c_lat!=null&&r.c_lat!=null&&Math.abs(d.c_lat-r.c_lat)<1e-9&&Math.abs(d.c_lng-r.c_lng)<1e-9);if(same)continue;
+   const rt=Date.parse(d.updated_at),lt=r.ts?Date.parse(r.ts):0;if(!lt||rt>=lt){applyRow(d);pulled++}else up.push(r)}
+  else if(r.c_lat!=null)up.push(r)}
+ if(up.length&&confirm(`${up.length} correction${up.length>1?'s':''} on this device ${up.length>1?'are':'is'} not on the server yet (or newer than the server's). Upload ${up.length>1?'them':'it'}?`))up.forEach(syncPush);
+ const{data:photos,error:photoErr}=await SY.c.from('survey_photos').select('*').eq('survey',SY.survey);if(photoErr)throw photoErr;
+ for(const d of photos){const r=S.recs.find(x=>x.id===d.tree_id);if(!r)continue;const a=await loadPhotos(r.uid);r.photo_paths=r.photo_paths||[];if(a.includes('sb:'+d.storage_path)){await setThumb(r);continue}let i=r.photo_paths.indexOf(d.storage_path);if(i<0){i=a.length;r.photo_paths[i]=d.storage_path;a[i]='sb:'+d.storage_path;(r.pn=r.pn||[])[i]=d.file_name;(r.pt=r.pt||[])[i]=d.photo_time}r.np=a.length;await idb('readwrite',x=>x.put(a,'ph:'+r.uid));await setThumb(r)}
+ for(const r of S.recs){const a=await loadPhotos(r.uid);if(a.some(x=>x&&x.startsWith('data:')))await savePhotos(r)}
+ if(photos.length)await persist();
+ if(pulled)toast(`${pulled} correction${pulled>1?'s':''} loaded from the team`)}
+function subscribe(){if(SY.ch)SY.c.removeChannel(SY.ch);
+ SY.ch=SY.c.channel('corr-'+SY.survey).on('postgres_changes',{event:'*',schema:'public',table:'corrections',filter:'survey=eq.'+SY.survey},p=>{if(p.new&&p.new.tree_id)applyRow(p.new)})
+  .on('postgres_changes',{event:'*',schema:'public',table:'survey_data',filter:'survey=eq.'+SY.survey},async p=>{const d=p.new;if(!d||!d.payload||d.updated_at===LAST_SURVEY_STAMP)return;if(S.pending){toast('A teammate changed the shared survey while you have an unsaved map move. Save or cancel your move, then reload to get their changes.');return}SUPPRESS_REMOTE=true;S.recs=d.payload.recs||[];S.cols=d.payload.cols||[];S.files=d.payload.files||[];for(const r of S.recs){if(r.photo_paths&&r.photo_paths.length){PH[r.uid]=r.photo_paths.map(x=>x?'sb:'+x:null).filter(Boolean);r.np=PH[r.uid].length;await idb('readwrite',x=>x.put(PH[r.uid],'ph:'+r.uid))}}await idb('readwrite',x=>x.put({recs:S.recs,cols:S.cols,files:S.files},'survey'));rebuild();SUPPRESS_REMOTE=false;toast('Shared survey updated by '+(d.updated_by||'a teammate'))})
+  .on('postgres_changes',{event:'INSERT',schema:'public',table:'survey_photos',filter:'survey=eq.'+SY.survey},async p=>{const d=p.new;if(d.created_by===SY.user)return;const r=S.recs.find(x=>x.id===d.tree_id);if(!r)return;r.photo_paths=r.photo_paths||[];if(r.photo_paths.includes(d.storage_path))return;const a=await loadPhotos(r.uid);r.photo_paths.push(d.storage_path);a.push('sb:'+d.storage_path);(r.pn=r.pn||[]).push(d.file_name);(r.pt=r.pt||[]).push(d.photo_time);r.np=a.length;await idb('readwrite',x=>x.put(a,'ph:'+r.uid));await setThumb(r);refreshItem(r);if(cur()===r)renderDetail();toast(`A teammate added a photo to ${r.id}`)})
+  .on('postgres_changes',{event:'DELETE',schema:'public',table:'survey_photos',filter:'survey=eq.'+SY.survey},p=>{const d=p.old;for(const r of S.recs){const i=(r.photo_paths||[]).indexOf(d.storage_path);if(i<0)continue;r.photo_paths.splice(i,1);if(PH[r.uid])PH[r.uid].splice(i,1);if(r.pn)r.pn.splice(i,1);if(r.pt)r.pt.splice(i,1);r.np=(r.np||1)-1;idb('readwrite',x=>x.put(PH[r.uid]||[],'ph:'+r.uid));setThumb(r).then(()=>{refreshItem(r);if(cur()===r)renderDetail()});toast(`A teammate removed a photo from ${r.id}`);break}})
+  .subscribe(st=>{if(st==='SUBSCRIBED')syncStatus('live');else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'||st==='CLOSED')syncStatus('offline')})}
+async function syncConnect(cfg,pw){syncStatus('connecting');await loadSb();SY.c=supabase.createClient(cfg.url,cfg.key);
+ if(pw){const{data,error}=await SY.c.auth.signInWithPassword({email:cfg.email,password:pw});if(error)throw error;SY.user=data.user.email}
+ else{const{data}=await SY.c.auth.getSession();if(!data.session){SY.c=null;syncStatus('signin');return false}SY.user=data.session.user.email}
+ SY.survey=cfg.survey;await syncInit();subscribe();syncStatus('live');await flush();return true}
+function openSyncDialog(message=''){const live=SY.state==='live'&&!!SY.user,ready=!!(SUPABASE_URL&&SUPABASE_PUBLISHABLE_KEY);$('#loginFields').style.display=live||!ready?'none':'block';$('#sOut').style.display=live?'':'none';$('#sGo').style.display=live||!ready?'none':'';$('#sClose').textContent=live||!ready?'Close':'Not now';$('#sIntro').textContent=live?'This device is connected. Sign out to require sign-in again.':ready?'Sign in once on this device. Your session will reconnect automatically on future visits; your password is never saved.':'Team sync needs app configuration. Follow the setup guide to add Supabase settings.';$('#sEmail').value=loadCfg().email||SY.user||'';$('#sPw').value='';$('#sMsg').textContent=message||(!ready?'Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in config.js or Vercel environment variables.':live?'Connected as '+SY.user+'. Team updates are live.':'');if(!$('#dSync').open)$('#dSync').showModal()}
+$('#bSync').onclick=()=>openSyncDialog();$('#sClose').onclick=()=>$('#dSync').close();
+$('#sGo').onclick=async()=>{const cfg={url:SUPABASE_URL,key:SUPABASE_PUBLISHABLE_KEY,survey:DEFAULT_SURVEY,email:$('#sEmail').value.trim()},pw=$('#sPw').value,m=$('#sMsg');if(!cfg.url||!cfg.key){m.textContent='Set Supabase app configuration first.';return}if(!cfg.email||!pw){m.textContent='Enter your email and password.';return}m.textContent='Signing in…';$('#sGo').disabled=true;try{saveCfg(cfg);const ok=await syncConnect(cfg,pw);if(!ok)throw new Error('No active session was created. Check your sign-in details.');$('#sPw').value='';$('#dSync').close();toast('Signed in · team sync is live')}catch(e){syncStatus('error');m.textContent='Could not sign in: '+(e.message||e);$('#sPw').value=''}finally{$('#sGo').disabled=false}};
+$('#sOut').onclick=async()=>{if(SY.c){try{await SY.c.auth.signOut();if(SY.ch)SY.c.removeChannel(SY.ch)}catch(e){}}SY.c=null;SY.user='';SY.survey=DEFAULT_SURVEY;syncStatus('off');openSyncDialog('Signed out. Enter your email and password to sign in again.')};
+{const c=loadCfg(),cfg={url:SUPABASE_URL,key:SUPABASE_PUBLISHABLE_KEY,survey:DEFAULT_SURVEY,email:c.email||''};if(!RO&&cfg.url&&cfg.key)syncConnect(cfg,null).then(ok=>{if(!ok)openSyncDialog()}).catch(()=>{syncStatus('offline');openSyncDialog('Could not reconnect. Sign in again when you are online.')})}
+// ---------- restore imagery choice ----------
+const setBase=l=>{[esri,clarity,osm,customL,googleL].forEach(x=>x&&map.removeLayer(x));l.addTo(map)};
+const saveBase=l=>{const n=l===googleL?'google':l===clarity?'clarity':l===osm?'osm':l===customL?'custom':l===esri?'esri':null;if(!n)return;try{localStorage.setItem('tm_base',n)}catch(e){}idb('readwrite',x=>x.put(n,'pref:base')).catch(()=>{})};
+(async()=>{let k=GOOGLE_KEY.trim(),b=null,googleActive=false;
+ try{k=k||localStorage.getItem('tm_gkey')||'';b=localStorage.getItem('tm_base')}catch(e){}
+ try{k=k||await idb('readonly',x=>x.get('pref:gkey'))||'';b=b||await idb('readonly',x=>x.get('pref:base'))}catch(e){}
+ if(k){try{await addGoogle(k,true);googleActive=true}catch(e){toast('Google satellite could not start ('+e.message+'). Using the available fallback imagery.')}}
+ if(!googleActive){if(b==='clarity')setBase(clarity);else if(b==='osm')setBase(osm);else if(b==='custom'&&customL)setBase(customL)}
+ map.on('layeradd',e=>saveBase(e.layer))})();
+// ---------- boot ----------
+renderDetail();
+if(RO){S.recs=SHARED.recs||[];S.cols=SHARED.cols||[];S.files=SHARED.files||[];S.mode=SHARED.mode||'corrected';Object.assign(PH,SHARED.photos||{});S.recs.forEach(r=>{const a=PH[r.uid];if(a&&a.length&&!r.th)r.th=a[a.length-1]});$('#tgMode').checked=S.mode==='corrected';
+ ['#bEdit','#bUndo','#bSave','#drop','#bTpl','#bClear','#bPh','#bPhF','#bAddTree','#bSync'].forEach(q=>{const e=$(q);if(e)e.style.display='none'});document.title='Tree Survey Mapper (shared, read-only)';rebuild();setStat('Shared survey, read-only. Saved '+(SHARED.at||'').slice(0,10))}
+(RO?Promise.resolve(null):idb('readonly',s=>s.get('survey'))).then(d=>{let lost=false;try{lost=!!localStorage.getItem('tm_dirty')}catch(e){}
+ if(d&&d.recs&&d.recs.length){S.recs=d.recs;S.cols=d.cols||[];S.files=d.files||[];rebuild();setStat(`Restored · ${S.recs.length} trees`)}
+ if(lost&&!RO){flagDirty(false);toast('Unsaved edits from your last session were not saved. Showing the last confirmed state.')}}).catch(()=>setStat('Local saving unavailable in this browser'));
+</script></body></html>

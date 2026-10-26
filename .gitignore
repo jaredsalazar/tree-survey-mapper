@@ -1,0 +1,17 @@
+# Runtime config, credentials, and local output
+config.js
+.env
+.env.*
+!.env.example
+dist/
+node_modules/
+
+# Survey/private data
+data/
+photos/
+trees/
+trees_cleaned/
+Trees_Images/
+*_backup.json
+*_corrected*.csv
+*.kml
