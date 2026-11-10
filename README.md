@@ -46,7 +46,8 @@ Environment variables keep values out of GitHub, but browser app configuration i
 3. Import the survey CSV, choose the ID/latitude/longitude columns, and load the survey.
 4. Use **Team sync** to reconnect status; corrections and photo updates sync through Supabase.
 5. Use **＋ Add tree** to add a tagged point, or **Hide tree** to hide it with a reason while retaining its record.
-6. Photos go to the private Supabase Storage bucket when the team is connected.
+6. In a tree profile, enter circumference in cm and the measurement height above ground in metres. With both values filled, diameter is calculated as circumference ÷ π and can still be edited. Age, elevation, variety, and notes are saved with the profile.
+7. Photos go to the private Supabase Storage bucket when the team is connected.
 
 ## Data and licensing
 
