@@ -282,6 +282,16 @@ button{transition:background-color .18s ease,border-color .18s ease,color .18s e
  #detail .tree-card .map-link{min-height:34px}
  #detail .tree-card .recorded-table th,#detail .tree-card .recorded-table td{padding:4px 7px}
 }
+@media(min-width:761px), (orientation:landscape) and (max-height:600px){
+ #detail{min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#839687 transparent}
+ #detail>.tree-card{flex:none}
+ #detail::-webkit-scrollbar{width:8px}
+ #detail::-webkit-scrollbar-thumb{background:#839687;border-radius:8px}
+}
+#detail .tree-card .location-coords-row{display:flex;align-items:center;gap:6px;min-width:0}
+#detail .tree-card .location-coords-row .coords{flex:1;min-width:0}
+#detail .tree-card .map-icon-link{width:36px;min-width:36px;height:36px;min-height:36px;padding:0;border-radius:9px}
+#detail .tree-card .map-icon-link svg{width:20px;height:20px}
 @media(max-width:760px) and (orientation:portrait){
  #detail .tree-card-head{padding:8px;gap:5px}
  #detail .tree-card-title{gap:4px}
@@ -733,7 +743,8 @@ function renderDetail(){const d=$('#detail');d.replaceChildren();const r=cur();
  const a=act(r),box=el('div',{className:'photo-viewer'}),addFile=async e=>{await addPhotos(r,e.target.files);e.target.value='';drawPhotos(r,box)},
   fi=el('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:addFile}),ci=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:true,onchange:addFile}),pm=posMain(r),cs=S.mode==='corrected'&&r.c_lat!=null;
  const speciesKey=Object.keys(r.raw||{}).find(k=>/^(tree\s*)?species$/i.test(k.trim())),species=speciesKey&&String(r.raw[speciesKey]||'').trim()||'Mango',card=el('article',{className:'tree-card'});card.append(el('div',{className:'tree-card-head'},el('div',{className:'tree-card-title'},el('h2',{text:'Tree '+(r.id||'(no ID)')}),el('span',{className:'species-type',text:species})),el('div',{className:'tree-card-actions'},...(!RO?[treeIcon('eyeOff','Hide tree from map','',()=>toggleTreeVisibility(r)),treeIcon('trash','Delete tree','tree-delete',()=>openHideTree(r)),treeIcon('gear','Edit tree profile','',()=>{const f=d.querySelector('.edit-profile');if(f){f.open=true;f.scrollIntoView({behavior:'smooth',block:'nearest'});f.querySelector('input')?.focus({preventScroll:true})}})]:[]),treeIcon('close','Close details','',closeDetail))),el('div',{className:'hint detail-source',text:r.source+', row '+r.line}));
- const state=stOf(r),gpsInfo=el('div',{id:'gpsDistance',className:'gps-distance','aria-live':'polite'}),loc=el('div',{className:'location-card'},el('div',{className:'location-status'},el('span',{className:'tag '+state,text:state}),el('span',{className:'hint',text:pm?(cs?'Corrected position':'Measured position'):'No valid GPS position'})),el('strong',{className:'coords',text:pm?`${f7(pm[0])}, ${f7(pm[1])}`:'Check the imported coordinates'}),gpsInfo,...(pm?[el('a',{className:'map-link',href:`https://maps.google.com/?q=${pm[0]},${pm[1]}`,target:'_blank',rel:'noopener',text:'Open in Maps'})]:[]),...((r.bad||r.warn)?[el('span',{className:'hint',text:r.bad||r.warn})]:[]));
+ const mapIcon=pm?(()=>{const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.8');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');svg.setAttribute('aria-hidden','true');svg.innerHTML='<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15m6-12v15"/>';return el('a',{className:'map-link map-icon-link',href:`https://maps.google.com/?q=${pm[0]},${pm[1]}`,target:'_blank',rel:'noopener',title:'Open in Maps','aria-label':'Open in Maps'},svg)})():null;
+ const state=stOf(r),gpsInfo=el('div',{id:'gpsDistance',className:'gps-distance','aria-live':'polite'}),coords=el('div',{className:'location-coords-row'},el('strong',{className:'coords',text:pm?`${f7(pm[0])}, ${f7(pm[1])}`:'Check the imported coordinates'}),...(mapIcon?[mapIcon]:[])),loc=el('div',{className:'location-card'},el('div',{className:'location-status'},el('span',{className:'tag '+state,text:state}),el('span',{className:'hint',text:pm?(cs?'Corrected position':'Measured position'):'No valid GPS position'})),coords,gpsInfo,...((r.bad||r.warn)?[el('span',{className:'hint',text:r.bad||r.warn})]:[]));
  const lt=el('table');kv(lt,'Status',stOf(r)+(r.bad?': '+r.bad:'')+(r.warn?' ('+r.warn+')':''));kv(lt,'Measured GPS',r.o_lat==null?null:`${f7(r.o_lat)}, ${f7(r.o_lng)}`);
  if(r.c_lat!=null){kv(lt,'Corrected GPS',`${f7(r.c_lat)}, ${f7(r.c_lng)}`);kv(lt,'Moved from measured',fm(disp(r)));kv(lt,'Corrected at',r.ts);if(r.rb)kv(lt,'Corrected by',r.rb)}
  const locationHistory=el('details',{className:'extra-details'},el('summary',{text:'Location history and GPS'}),lt);
