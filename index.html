@@ -222,6 +222,33 @@ button{transition:background-color .18s ease,border-color .18s ease,color .18s e
  #detail #live{padding:9px 10px;border-radius:6px;background:#fff8e8}
 }
 
+/* Trading-card tree details */
+#detail .tree-card{display:grid;gap:0;overflow:hidden;border:3px solid #d9bf68;border-radius:15px;background:#fffdf3;box-shadow:0 5px 18px #20372924}#detail .tree-card{color:#17251d}
+#detail .tree-card-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px;background:linear-gradient(120deg,#1f593f,#76a545);color:#fff}
+#detail .tree-card-title{display:flex;align-items:baseline;gap:8px;min-width:0;margin-right:auto}
+#detail .tree-card-title h2{margin:0;font-size:21px;line-height:1.15;overflow-wrap:anywhere}
+#detail .tree-card-head .species-type{padding:4px 11px;border:1px solid #f7e7a4;border-radius:999px;background:#f3dc79;color:#3d3416;font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+#detail .tree-card-head button{min-height:40px;border-color:#ffffff75;background:#ffffff12;color:#fff}#detail .tree-card-head button:last-child{margin-left:auto}
+#detail .tree-card-head button.danger{border-color:#ffd5c8;background:#542d28;color:#fff}
+#detail .tree-card .detail-source{margin:0;padding:7px 12px;background:#f2e9c8;color:#5c5234}#detail .tree-card .hint{color:#52635a}
+#detail .tree-card .sec{margin:0;padding:11px 12px;border-top:1px solid #e3d9b8}
+#detail .tree-card .sec h3{margin:0 0 8px;color:#35573f;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+#detail .tree-card .photo-viewer{padding:7px;border:2px solid #d7c77d;border-radius:10px;background:#f6f0d9}
+#detail .tree-card .photo-viewer .ph{height:clamp(210px,36dvh,340px);border-radius:6px;background:#e7e2ce;cursor:zoom-in}
+#detail .tree-card .photo-viewer .noph{height:180px;border:1px dashed #a99b68;background:#f1ecd9;color:#605b46}
+#detail .tree-card .photo-actions button{min-height:44px}
+#detail .tree-card .location-card{border:1px solid #d8d4be;border-left:4px solid #71994b;border-radius:9px;background:#fff;padding:11px}
+#detail .tree-card .recorded-table{border-collapse:separate;border-spacing:0 4px;font-size:13px}
+#detail .tree-card .recorded-table tr{background:#f3f0e3}
+#detail .tree-card .recorded-table th,#detail .tree-card .recorded-table td{padding:7px 9px;border:0}
+#detail .tree-card .recorded-table th{width:45%;color:#5a604d;font-weight:650;border-radius:6px 0 0 6px}#detail .tree-card .recorded-table td{color:#17251d;border-radius:0 6px 6px 0}
+#detail .tree-card .recorded-table tr:first-child th{border-radius:6px 0 0 6px}
+#detail .tree-card .recorded-table tr:first-child td{border-radius:0 6px 6px 0}
+#detail .tree-card .extra-details>summary{color:#35573f}
+#detail .tree-card .edit-profile{margin-top:8px;padding-top:7px;border-top:1px dashed #d8d4be}
+#detail .tree-card .edit-profile>summary{min-height:42px;display:flex;align-items:center;font-weight:700}
+#detail .tree-card #gpsDistance{margin-top:2px}
+@media(max-width:760px){#detail .tree-card{border-width:2px;border-radius:13px}#detail .tree-card-head{padding:10px;gap:6px}#detail .tree-card-title h2{font-size:19px}#detail .tree-card-head button{min-height:44px;padding:7px 9px}#detail .tree-card .sec{padding:10px}#detail .tree-card .photo-viewer .ph{height:clamp(210px,38dvh,320px)}#detail .tree-card .photo-actions button{flex-basis:calc(50% - 8px)}}
 /* Survey site groups */
 .site-center-icon{background:transparent;border:0}.site-hub{display:flex;align-items:center;gap:7px;width:max-content;filter:drop-shadow(0 2px 4px #0009)}.site-center{display:grid;place-items:center;flex:none;width:38px;height:38px;border:3px solid #fff;border-radius:50%;background:#ffd426;color:#26321c;font-size:16px;font-weight:850;box-shadow:0 0 0 3px #ffd42666;animation:centerPulse 2s ease-in-out infinite}@keyframes centerPulse{50%{box-shadow:0 0 0 8px #ffd42635,0 2px 10px #0008}}.site-center-label{padding:4px 8px;border:1px solid #ffffffd9;border-radius:7px;background:#163326ed;color:#fff;font-size:12px;font-weight:700;white-space:nowrap}
 @keyframes connectFlash{0%{transform:scale(.94);box-shadow:0 0 0 0 #ffd426b0}100%{transform:scale(1);box-shadow:0 0 0 14px #ffd42600}}
@@ -642,15 +669,15 @@ function renderDetail(){const d=$('#detail');d.replaceChildren();const r=cur();
  if(r.hidden){d.append(el('div',{className:'row detail-heading'},el('h2',{text:'Tree '+(r.id||'(no ID)')}),...(!RO?[el('button',{className:'p',text:'Restore tree',onclick:()=>restoreTree(r)}),el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})]:[el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})])),el('p',{className:'hint',text:'This tree is hidden from the map and site profiles. Its survey record and photos are retained.'}),sec('Hidden record',el('p',{text:r.hidden_reason||'No reason recorded'}),el('p',{className:'hint',text:`Hidden ${r.hidden_at?new Date(r.hidden_at).toLocaleString():''}${r.hidden_by?' by '+r.hidden_by:''}`})));return}
  const a=act(r),box=el('div',{className:'photo-viewer'}),addFile=async e=>{await addPhotos(r,e.target.files);e.target.value='';drawPhotos(r,box)},
   fi=el('input',{type:'file',accept:'image/*',multiple:true,hidden:true,onchange:addFile}),ci=el('input',{type:'file',accept:'image/*',capture:'environment',hidden:true,onchange:addFile}),pm=posMain(r),cs=S.mode==='corrected'&&r.c_lat!=null;
- d.append(el('div',{className:'row detail-heading'},el('h2',{text:'Tree '+(r.id||'(no ID)'),style:'margin:0'}),...(!RO?[el('button',{text:'Hide tree',className:'danger',onclick:()=>openHideTree(r)}),el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})]:[el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})])),el('div',{className:'hint detail-source',text:r.source+', row '+r.line}));
+ const speciesKey=Object.keys(r.raw||{}).find(k=>/^(tree\s*)?species$/i.test(k.trim())),species=speciesKey&&String(r.raw[speciesKey]||'').trim()||'Mango',card=el('article',{className:'tree-card'});card.append(el('div',{className:'tree-card-head'},el('div',{className:'tree-card-title'},el('h2',{text:'Tree '+(r.id||'(no ID)')}),el('span',{className:'species-type',text:species})),...(!RO?[el('button',{text:'Hide tree',className:'danger',onclick:()=>openHideTree(r)}),el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})]:[el('button',{text:'Close','aria-label':'Close details',onclick:closeDetail})])),el('div',{className:'hint detail-source',text:r.source+', row '+r.line}));
  const state=stOf(r),gpsInfo=el('div',{id:'gpsDistance',className:'gps-distance','aria-live':'polite'}),loc=el('div',{className:'location-card'},el('div',{className:'location-status'},el('span',{className:'tag '+state,text:state}),el('span',{className:'hint',text:pm?(cs?'Corrected position':'Measured position'):'No valid GPS position'})),el('strong',{className:'coords',text:pm?`${f7(pm[0])}, ${f7(pm[1])}`:'Check the imported coordinates'}),gpsInfo,...(pm?[el('a',{className:'map-link',href:`https://maps.google.com/?q=${pm[0]},${pm[1]}`,target:'_blank',rel:'noopener',text:'Open in Maps'})]:[]),...((r.bad||r.warn)?[el('span',{className:'hint',text:r.bad||r.warn})]:[]));
  const lt=el('table');kv(lt,'Status',stOf(r)+(r.bad?': '+r.bad:'')+(r.warn?' ('+r.warn+')':''));kv(lt,'Measured GPS',r.o_lat==null?null:`${f7(r.o_lat)}, ${f7(r.o_lng)}`);
  if(r.c_lat!=null){kv(lt,'Corrected GPS',`${f7(r.c_lat)}, ${f7(r.c_lng)}`);kv(lt,'Moved from measured',fm(disp(r)));kv(lt,'Corrected at',r.ts);if(r.rb)kv(lt,'Corrected by',r.rb)}
  const editCta=!RO&&!S.edit?el('button',{className:'p',text:'Edit this location',onclick:()=>$('#bEdit').click()}):null;
- d.append(sec('Location',loc,...(editCta?[editCta]:[]),el('details',{className:'extra-details'},el('summary',{text:'Location history and GPS'}),lt)));
+ card.append(sec('Location',loc,...(editCta?[editCta]:[]),el('details',{className:'extra-details'},el('summary',{text:'Location history and GPS'}),lt)));
  const photoActions=RO?null:el('div',{className:'photo-actions'},el('button',{className:'p',text:'Take photo',onclick:()=>ci.click()}),el('button',{text:'Choose photos',onclick:()=>fi.click()}),ci,fi);
- d.append(sec('Photos',box,...(photoActions?[photoActions]:[])));drawPhotos(r,box);
- const t=el('table');[['Age','age','years'],['Diameter','dia','cm'],['Circumference','circ','cm'],['Circumference measured at','circ_height','m'],['Elevation','elev','m']].forEach(([l,k,u])=>{const[v,src]=k==='circ'||k==='circ_height'?[r.p&&r.p[k],r.p&&r.p[k]!=null?'entered':''] : eff(r,k);kv(t,l,v==null?(k==='dia'?'Not measured':'Not recorded'):`${v} ${u}`+(src&&src!=='entered'?` (${src})`:''))});
+ card.insertBefore(sec('Tree photo',box,...(photoActions?[photoActions]:[])),card.children[2]);drawPhotos(r,box);
+ const t=el('table',{className:'recorded-table'});[['Age','age','years'],['Diameter','dia','cm'],['Circumference','circ','cm'],['Circumference measured at','circ_height','m'],['Elevation','elev','m']].forEach(([l,k,u])=>{const[v,src]=k==='circ'||k==='circ_height'?[r.p&&r.p[k],r.p&&r.p[k]!=null?'entered':''] : eff(r,k);kv(t,l,v==null?(k==='dia'?'Not measured':'Not recorded'):`${v} ${u}`+(src&&src!=='entered'?` (${src})`:''))});
  if(r.p&&r.p.variety)kv(t,'Mango variety',r.p.variety);
  if(r.p&&r.p.notes)kv(t,'Notes',r.p.notes);
  const lat=el('input',{type:'text',id:'iLat',disabled:!S.edit,'aria-label':'Latitude',value:a?String(S.pending?S.pending[0]:a[0]):''}),
@@ -659,9 +686,9 @@ function renderDetail(){const d=$('#detail');d.replaceChildren();const r=cur();
  const live=el('p',{id:'live',className:'hint',text:S.edit?'Drag the pink marker onto the trunk, or type coordinates.':'Turn on Edit locations to move this tree.'});
  const bs=el('button',{id:'bSaveCorrection',className:'p',text:'Save correction',disabled:!S.edit,onclick:saveCorr}),bc=el('button',{id:'bCancelEdit',text:'Cancel edit',disabled:!S.edit,onclick:()=>{S.pending=null;flagDirty(false);syncDrag();renderDetail()}}),
   br=el('button',{text:'Reset selected tree',disabled:r.c_lat==null,onclick:()=>resetTree(r)});
- if(!RO)d.append(el('details',{className:'extra-details edit-details',open:S.edit},el('summary',{text:'Edit location'}),...(S.edit?[]:[el('p',{className:'hint',text:'Turn on Edit locations to move this tree on the map or enter coordinates.'})]),el('label',{text:'Latitude'}),lat,el('label',{text:'Longitude'}),lng,live,el('div',{className:'row position-actions'},bs,bc,br)));
- d.append(el('details',{className:'extra-details'},el('summary',{text:'Tree profile'}),t,profileForm(r)),el('details',{className:'extra-details'},el('summary',{text:`Harvest history${(r.hv||[]).length?` · ${(r.hv||[]).length}`:''}`} ),harvestBlock(r)));
- const t2=el('table');Object.entries(r.raw).forEach(([k,v])=>kv(t2,k,v));d.append(el('details',{className:'extra-details'},el('summary',{text:`Imported data · ${Object.keys(r.raw).length} fields`}),t2));if(RO){d.querySelectorAll('.edit-profile,.add-harvest').forEach(x=>x.remove());d.querySelectorAll('.extra-details button,.sec button').forEach(b=>b.remove())}liveDisp();updateGpsDistance()}
+ if(!RO)card.append(el('details',{className:'extra-details edit-details',open:S.edit},el('summary',{text:'Edit location'}),...(S.edit?[]:[el('p',{className:'hint',text:'Turn on Edit locations to move this tree on the map or enter coordinates.'})]),el('label',{text:'Latitude'}),lat,el('label',{text:'Longitude'}),lng,live,el('div',{className:'row position-actions'},bs,bc,br)));
+ card.append(sec('Description',t,...(!RO?[profileForm(r)]:[])),el('details',{className:'extra-details'},el('summary',{text:`Harvest history${(r.hv||[]).length?` · ${(r.hv||[]).length}`:''}`} ),harvestBlock(r)));
+ const t2=el('table');Object.entries(r.raw).forEach(([k,v])=>kv(t2,k,v));card.append(el('details',{className:'extra-details'},el('summary',{text:`Imported data · ${Object.keys(r.raw).length} fields`}),t2));d.append(card);if(RO){d.querySelectorAll('.edit-profile,.add-harvest').forEach(x=>x.remove());d.querySelectorAll('.extra-details button,.sec button').forEach(b=>b.remove())}liveDisp();updateGpsDistance()}
 function liveDisp(){const r=cur(),p=$('#live');if(!r||!p||!S.pending)return;const o=r.o_lat!=null?L.latLng(r.o_lat,r.o_lng).distanceTo(S.pending):null;p.textContent='Unsaved position. '+(o==null?'No original GPS point to compare.':`Displacement from original GPS: ${fm(o)}.`)}
 // ---------- editing ----------
 function syncDrag(){if(dragM){map.removeLayer(dragM);dragM=null}const r=cur();if(!S.edit||!r||r.hidden)return;
